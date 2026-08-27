@@ -42,6 +42,10 @@ contract Vault is IERC4626, Ownable, ReentrancyGuard {
     string private _name;
     string private _symbol;
 
+    // ==================== Events ====================
+
+    event Approval(address indexed owner, address indexed spender, uint256 value);
+
     constructor(address _asset, string memory _name_, string memory _symbol_) Ownable(msg.sender) {
         asset = _asset;
         _name = _name_;
