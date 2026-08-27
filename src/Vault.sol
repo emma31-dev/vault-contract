@@ -46,6 +46,17 @@ contract Vault is IERC4626, Ownable, ReentrancyGuard {
 
     event Approval(address indexed owner, address indexed spender, uint256 value);
 
+    // ==================== Errors ====================
+
+    error ZeroAssets();
+    error ZeroShares();
+    error ZeroSharesMinted();
+    error InsufficientBalance();
+    error InsufficientAllowance();
+    error TransferAmountExceedsBalance();
+    error TransferAmountExceedsAllowance();
+    error NotImplemented();
+
     constructor(address _asset, string memory _name_, string memory _symbol_) Ownable(msg.sender) {
         asset = _asset;
         _name = _name_;
@@ -79,7 +90,7 @@ contract Vault is IERC4626, Ownable, ReentrancyGuard {
 
     function transferFrom(address from, address to, uint256 amount) external override nonReentrant returns (bool) {
         uint256 allowed = _allowances[from][msg.sender];
-        require(allowed >= amount, "ERC20: transfer amount exceeds allowance");
+        if (allowed < amount) revert TransferAmountExceedsAllowance();
         if (allowed != type(uint256).max) {
             _allowances[from][msg.sender] = allowed - amount;
         }
@@ -88,7 +99,7 @@ contract Vault is IERC4626, Ownable, ReentrancyGuard {
     }
 
     function _transfer(address from, address to, uint256 amount) internal {
-        require(_shares[from] >= amount, "ERC20: transfer amount exceeds balance");
+        if (_shares[from] < amount) revert TransferAmountExceedsBalance();
         _shares[from] -= amount;
         _shares[to] += amount;
         emit Transfer(from, to, amount);
@@ -138,28 +149,28 @@ contract Vault is IERC4626, Ownable, ReentrancyGuard {
     }
 
     function deposit(uint256 assets, address receiver) external override nonReentrant returns (uint256 shares) {
-        require(assets > 0, "ZERO_ASSETS");
+        if (assets == 0) revert ZeroAssets();
         shares = previewDeposit(assets);
         _deposit(msg.sender, receiver, assets, shares);
         return shares;
     }
 
     function mint(uint256 shares, address receiver) external override nonReentrant returns (uint256 assets) {
-        require(shares > 0, "ZERO_SHARES");
+        if (shares == 0) revert ZeroShares();
         assets = previewMint(shares);
         _deposit(msg.sender, receiver, assets, shares);
         return assets;
     }
 
     function withdraw(uint256 assets, address receiver, address owner) external override nonReentrant returns (uint256 shares) {
-        require(assets > 0, "ZERO_ASSETS");
+        if (assets == 0) revert ZeroAssets();
         shares = previewWithdraw(assets);
         _withdraw(owner, receiver, owner, assets, shares);
         return shares;
     }
 
     function redeem(uint256 shares, address receiver, address owner) external override nonReentrant returns (uint256 assets) {
-        require(shares > 0, "ZERO_SHARES");
+        if (shares == 0) revert ZeroShares();
         assets = previewRedeem(shares);
         _withdraw(owner, receiver, owner, assets, shares);
         return assets;
@@ -168,7 +179,7 @@ contract Vault is IERC4626, Ownable, ReentrancyGuard {
     // ==================== Internal ====================
 
     function _deposit(address caller, address receiver, uint256 assets, uint256 shares) internal {
-        require(shares > 0, "ZERO_SHARES_MINTED");
+        if (shares == 0) revert ZeroSharesMinted();
         IERC20(asset).safeTransferFrom(caller, address(this), assets);
         _shares[receiver] += shares;
         _totalShares += shares;
@@ -177,7 +188,7 @@ contract Vault is IERC4626, Ownable, ReentrancyGuard {
     }
 
     function _withdraw(address caller, address receiver, address owner, uint256 assets, uint256 shares) internal {
-        require(_shares[owner] >= shares, "INSUFFICIENT_BALANCE");
+        if (_shares[owner] < shares) revert InsufficientBalance();
         if (caller != owner) {
             _spendAllowance(owner, caller, shares);
         }
@@ -190,13 +201,13 @@ contract Vault is IERC4626, Ownable, ReentrancyGuard {
 
     function _spendAllowance(address owner, address spender, uint256 amount) internal {
         uint256 allowed = _allowances[owner][spender];
-        require(allowed >= amount, "ERC20: insufficient allowance");
+        if (allowed < amount) revert InsufficientAllowance();
         if (allowed != type(uint256).max) {
             _allowances[owner][spender] = allowed - amount;
         }
     }
 
     // Required by IERC20 interface
-    function _mint(address, uint256) internal pure { revert("NOT_IMPLEMENTED"); }
-    function _burn(address, uint256) internal pure { revert("NOT_IMPLEMENTED"); }
+    function _mint(address, uint256) internal pure { revert NotImplemented(); }
+    function _burn(address, uint256) internal pure { revert NotImplemented(); }
 }
