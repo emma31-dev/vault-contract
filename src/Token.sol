@@ -12,6 +12,12 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 contract Token is ERC20, Ownable {
     uint256 public constant MAX_RECIPIENTS = 10;
 
+    error NoRecipients();
+    error TooManyRecipients();
+    error InsufficientBalance(uint256 available, uint256 required);
+    error ZeroAddress();
+    error CannotSendToContract();
+
     /**
      * @dev Constructor mints initial supply to the deployer.
      * @param name Token name
@@ -32,16 +38,17 @@ contract Token is ERC20, Ownable {
      * @param amount Amount of tokens to send to each recipient
      */
     function spray(address[] calldata recipients, uint256 amount) external onlyOwner {
-        require(recipients.length > 0, "SprayToken: no recipients");
-        require(recipients.length <= MAX_RECIPIENTS, "SprayToken: too many recipients (max 10)");
+        if (recipients.length == 0) revert NoRecipients();
+        if (recipients.length > MAX_RECIPIENTS) revert TooManyRecipients();
 
         uint256 totalCost = amount * recipients.length;
-        require(balanceOf(msg.sender) >= totalCost, "SprayToken: insufficient balance");
+        uint256 available = balanceOf(msg.sender);
+        if (available < totalCost) revert InsufficientBalance(available, totalCost);
 
         for (uint256 i = 0; i < recipients.length; i++) {
             address recipient = recipients[i];
-            require(recipient != address(0), "SprayToken: zero address");
-            require(recipient != address(this), "SprayToken: cannot send to contract itself");
+            if (recipient == address(0)) revert ZeroAddress();
+            if (recipient == address(this)) revert CannotSendToContract();
             _transfer(msg.sender, recipient, amount);
         }
     }
