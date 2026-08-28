@@ -8,10 +8,10 @@ import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 /**
  * @title SprayToken
  * @dev Standard ERC20 token with a special "spray" function that distributes
- *      tokens to a list of addresses (max 10 recipients per spray).
+ *      tokens to a list of addresses (max 100 recipients per spray).
  */
 contract Token is ERC20, Ownable, ReentrancyGuard {
-    uint256 public constant MAX_RECIPIENTS = 10;
+    uint256 public constant MAX_RECIPIENTS = 100;
 
     error NoRecipients();
     error TooManyRecipients();
@@ -36,7 +36,7 @@ contract Token is ERC20, Ownable, ReentrancyGuard {
 
     /**
      * @dev Sprays a fixed amount of tokens to a list of recipient addresses.
-     * @param recipients List of addresses to receive tokens (max 10)
+     * @param recipients List of addresses to receive tokens (max 100)
      * @param amount Amount of tokens to send to each recipient
      */
     function spray(address[] calldata recipients, uint256 amount) external onlyOwner nonReentrant {
@@ -57,7 +57,7 @@ contract Token is ERC20, Ownable, ReentrancyGuard {
 
     /**
      * @dev Splits a total amount of tokens evenly among all recipients.
-     * @param recipients List of addresses to receive tokens (max 10)
+     * @param recipients List of addresses to receive tokens (max 100)
      * @param totalAmount Total amount of tokens to distribute among all recipients
      */
     function spraySplit(address[] calldata recipients, uint256 totalAmount) external onlyOwner nonReentrant {
