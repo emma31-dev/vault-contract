@@ -44,7 +44,7 @@ contract Vault is IERC4626, Ownable, ReentrancyGuard {
 
     // Rewards accrue at 5% per year (approximately 0.0137% per day)
     // The daily rate is calculated as (5% / 365 days), scaled by 1e18 to preserve precision
-    uint256 private constant REWARD_RATE_PER_DAY = (5 * 1e18) / 365; // 5% per year, as a daily fraction
+    uint256 private constant REWARD_RATE_PER_DAY = 13698630136986301; // 5% per year, as a daily fraction (result of (5 * 1e18) / 365)
 
     uint256 private lastRewardTimestamp;
     uint256 private rewardPerTokenStored;
