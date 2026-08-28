@@ -17,6 +17,7 @@ contract Token is ERC20, Ownable {
     error InsufficientBalance(uint256 available, uint256 required);
     error ZeroAddress();
     error CannotSendToContract();
+    error AmountTooLow();
 
     /**
      * @dev Constructor mints initial supply to the deployer.
@@ -50,6 +51,30 @@ contract Token is ERC20, Ownable {
             if (recipient == address(0)) revert ZeroAddress();
             if (recipient == address(this)) revert CannotSendToContract();
             _transfer(msg.sender, recipient, amount);
+        }
+    }
+
+    /**
+     * @dev Splits a total amount of tokens evenly among all recipients.
+     * @param recipients List of addresses to receive tokens (max 10)
+     * @param totalAmount Total amount of tokens to distribute among all recipients
+     */
+    function spraySplit(address[] calldata recipients, uint256 totalAmount) external onlyOwner {
+        if (recipients.length == 0) revert NoRecipients();
+        if (recipients.length > MAX_RECIPIENTS) revert TooManyRecipients();
+
+        uint256 perRecipient = totalAmount / recipients.length;
+        if (perRecipient == 0) revert AmountTooLow();
+
+        uint256 actualTotal = perRecipient * recipients.length;
+        uint256 available = balanceOf(msg.sender);
+        if (available < actualTotal) revert InsufficientBalance(available, actualTotal);
+
+        for (uint256 i = 0; i < recipients.length; i++) {
+            address recipient = recipients[i];
+            if (recipient == address(0)) revert ZeroAddress();
+            if (recipient == address(this)) revert CannotSendToContract();
+            _transfer(msg.sender, recipient, perRecipient);
         }
     }
 
