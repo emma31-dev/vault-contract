@@ -42,9 +42,18 @@ contract Vault is IERC4626, Ownable, ReentrancyGuard {
     string private _name;
     string private _symbol;
 
+    // Rewards accrue at 5% per year (approximately 0.0137% per day)
+    // The daily rate is calculated as (5% / 365 days), scaled by 1e18 to preserve precision
+    uint256 private constant REWARD_RATE_PER_DAY = (5 * 1e18) / 365; // 5% per year, as a daily fraction
+
+    uint256 private lastRewardTimestamp;
+    uint256 private rewardPerTokenStored;
+    mapping(address => uint256) private userRewardPerTokenPaid;
+    mapping(address => uint256) private rewards;
+
     // ==================== Events ====================
 
-    event Approval(address indexed owner, address indexed spender, uint256 value);
+    event RewardsDistributed(uint256 indexed timestamp, uint256 rewardPerToken);
 
     // ==================== Errors ====================
 
@@ -62,6 +71,38 @@ contract Vault is IERC4626, Ownable, ReentrancyGuard {
         _name = _name_;
         _symbol = _symbol_;
         _decimals = IERC20Metadata(_asset).decimals();
+        lastRewardTimestamp = block.timestamp;
+    }
+
+    // ==================== Accrual Logic ====================
+
+    function _rewardPerToken() internal view returns (uint256) {
+        if (_totalShares == 0) {
+            return rewardPerTokenStored;
+        }
+        uint256 timeElapsed = block.timestamp - lastRewardTimestamp;
+        return rewardPerTokenStored + (timeElapsed * REWARD_RATE_PER_DAY) / 1 days;
+    }
+
+    function _updateReward(address account) internal {
+        rewardPerTokenStored = _rewardPerToken();
+        lastRewardTimestamp = block.timestamp;
+        if (account != address(0)) {
+            rewards[account] = earned(account);
+            userRewardPerTokenPaid[account] = rewardPerTokenStored;
+        }
+    }
+
+    function earned(address account) public view returns (uint256) {
+        return (_shares[account] * (_rewardPerToken() - userRewardPerTokenPaid[account])) / 1e18 + rewards[account];
+    }
+
+    function rewardPerToken() public view returns (uint256) {
+        return _rewardPerToken();
+    }
+
+    function getRewardForDuration(uint256 duration) public pure returns (uint256) {
+        return (REWARD_RATE_PER_DAY * duration) / 1 days;
     }
 
     // ==================== ERC20 Interface ====================
@@ -78,6 +119,7 @@ contract Vault is IERC4626, Ownable, ReentrancyGuard {
     }
 
     function approve(address spender, uint256 amount) external override returns (bool) {
+        if (amount == 0) revert ZeroAssets();
         _allowances[msg.sender][spender] = amount;
         emit Approval(msg.sender, spender, amount);
         return true;
@@ -99,7 +141,10 @@ contract Vault is IERC4626, Ownable, ReentrancyGuard {
     }
 
     function _transfer(address from, address to, uint256 amount) internal {
+        if (amount == 0) revert ZeroAssets();
         if (_shares[from] < amount) revert TransferAmountExceedsBalance();
+        _updateReward(from);
+        _updateReward(to);
         _shares[from] -= amount;
         _shares[to] += amount;
         emit Transfer(from, to, amount);
@@ -108,7 +153,8 @@ contract Vault is IERC4626, Ownable, ReentrancyGuard {
     // ==================== ERC4626 Core ====================
 
     function totalAssets() public view override returns (uint256) {
-        return IERC20(asset).balanceOf(address(this));
+        uint256 totalRewards = (_totalShares * _rewardPerToken()) / 1e18;
+        return IERC20(asset).balanceOf(address(this)) + totalRewards;
     }
 
     function convertToShares(uint256 assets) public view override returns (uint256) {
@@ -150,6 +196,7 @@ contract Vault is IERC4626, Ownable, ReentrancyGuard {
 
     function deposit(uint256 assets, address receiver) external override nonReentrant returns (uint256 shares) {
         if (assets == 0) revert ZeroAssets();
+        _updateReward(receiver);
         shares = previewDeposit(assets);
         _deposit(msg.sender, receiver, assets, shares);
         return shares;
@@ -157,6 +204,7 @@ contract Vault is IERC4626, Ownable, ReentrancyGuard {
 
     function mint(uint256 shares, address receiver) external override nonReentrant returns (uint256 assets) {
         if (shares == 0) revert ZeroShares();
+        _updateReward(receiver);
         assets = previewMint(shares);
         _deposit(msg.sender, receiver, assets, shares);
         return assets;
@@ -164,6 +212,7 @@ contract Vault is IERC4626, Ownable, ReentrancyGuard {
 
     function withdraw(uint256 assets, address receiver, address owner) external override nonReentrant returns (uint256 shares) {
         if (assets == 0) revert ZeroAssets();
+        _updateReward(owner);
         shares = previewWithdraw(assets);
         _withdraw(owner, receiver, owner, assets, shares);
         return shares;
@@ -171,9 +220,23 @@ contract Vault is IERC4626, Ownable, ReentrancyGuard {
 
     function redeem(uint256 shares, address receiver, address owner) external override nonReentrant returns (uint256 assets) {
         if (shares == 0) revert ZeroShares();
+        _updateReward(owner);
         assets = previewRedeem(shares);
         _withdraw(owner, receiver, owner, assets, shares);
         return assets;
+    }
+
+    // ==================== Rewards ====================
+
+    /// @notice Claims accrued rewards in the form of shares
+    function claimRewards() external nonReentrant returns (uint256 rewardShares) {
+        _updateReward(msg.sender);
+        rewardShares = rewards[msg.sender];
+        if (rewardShares == 0) return 0;
+        rewards[msg.sender] = 0;
+        _shares[msg.sender] += rewardShares;
+        _totalShares += rewardShares;
+        emit Transfer(address(0), msg.sender, rewardShares);
     }
 
     // ==================== Internal ====================
