@@ -26,11 +26,10 @@ contract Token is ERC20, Ownable, ReentrancyGuard {
      * @param symbol Token symbol
      * @param initialSupply Initial token supply
      */
-    constructor(
-        string memory name,
-        string memory symbol,
-        uint256 initialSupply
-    ) ERC20(name, symbol) Ownable(msg.sender) {
+    constructor(string memory name, string memory symbol, uint256 initialSupply)
+        ERC20(name, symbol)
+        Ownable(msg.sender)
+    {
         _mint(msg.sender, initialSupply);
     }
 
@@ -82,11 +81,7 @@ contract Token is ERC20, Ownable, ReentrancyGuard {
     /**
      * @dev Override to prevent burning tokens.
      */
-    function _update(
-        address from,
-        address to,
-        uint256 value
-    ) internal override {
+    function _update(address from, address to, uint256 value) internal override {
         super._update(from, to, value);
     }
 }

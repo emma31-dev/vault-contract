@@ -10,7 +10,9 @@ import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
 interface IERC4626 is IERC20 {
     event Deposit(address indexed sender, address indexed owner, uint256 assets, uint256 shares);
-    event Withdraw(address indexed sender, address indexed receiver, address indexed owner, uint256 assets, uint256 shares);
+    event Withdraw(
+        address indexed sender, address indexed receiver, address indexed owner, uint256 assets, uint256 shares
+    );
 
     function asset() external view returns (address assetTokenAddress);
     function totalAssets() external view returns (uint256 totalManagedAssets);
@@ -107,12 +109,25 @@ contract Vault is IERC4626, Ownable, ReentrancyGuard {
 
     // ==================== ERC20 Interface ====================
 
-    function name() public view returns (string memory) { return _name; }
-    function symbol() public view returns (string memory) { return _symbol; }
-    function decimals() public view returns (uint8) { return _decimals; }
+    function name() public view returns (string memory) {
+        return _name;
+    }
 
-    function totalSupply() public view override returns (uint256) { return _totalShares; }
-    function balanceOf(address owner) public view override returns (uint256) { return _shares[owner]; }
+    function symbol() public view returns (string memory) {
+        return _symbol;
+    }
+
+    function decimals() public view returns (uint8) {
+        return _decimals;
+    }
+
+    function totalSupply() public view override returns (uint256) {
+        return _totalShares;
+    }
+
+    function balanceOf(address owner) public view override returns (uint256) {
+        return _shares[owner];
+    }
 
     function allowance(address owner, address spender) public view override returns (uint256) {
         return _allowances[owner][spender];
@@ -167,11 +182,18 @@ contract Vault is IERC4626, Ownable, ReentrancyGuard {
         return supply == 0 ? shares : shares * totalAssets() / supply;
     }
 
-    function maxDeposit(address) public pure override returns (uint256) { return type(uint256).max; }
-    function maxMint(address) public pure override returns (uint256) { return type(uint256).max; }
+    function maxDeposit(address) public pure override returns (uint256) {
+        return type(uint256).max;
+    }
+
+    function maxMint(address) public pure override returns (uint256) {
+        return type(uint256).max;
+    }
+
     function maxWithdraw(address owner) public view override returns (uint256) {
         return convertToAssets(balanceOf(owner));
     }
+
     function maxRedeem(address owner) public view override returns (uint256) {
         return balanceOf(owner);
     }
@@ -210,7 +232,12 @@ contract Vault is IERC4626, Ownable, ReentrancyGuard {
         return assets;
     }
 
-    function withdraw(uint256 assets, address receiver, address owner) external override nonReentrant returns (uint256 shares) {
+    function withdraw(uint256 assets, address receiver, address owner)
+        external
+        override
+        nonReentrant
+        returns (uint256 shares)
+    {
         if (assets == 0) revert ZeroAssets();
         _updateReward(owner);
         shares = previewWithdraw(assets);
@@ -218,7 +245,12 @@ contract Vault is IERC4626, Ownable, ReentrancyGuard {
         return shares;
     }
 
-    function redeem(uint256 shares, address receiver, address owner) external override nonReentrant returns (uint256 assets) {
+    function redeem(uint256 shares, address receiver, address owner)
+        external
+        override
+        nonReentrant
+        returns (uint256 assets)
+    {
         if (shares == 0) revert ZeroShares();
         _updateReward(owner);
         assets = previewRedeem(shares);
@@ -271,6 +303,11 @@ contract Vault is IERC4626, Ownable, ReentrancyGuard {
     }
 
     // Required by IERC20 interface
-    function _mint(address, uint256) internal pure { revert NotImplemented(); }
-    function _burn(address, uint256) internal pure { revert NotImplemented(); }
+    function _mint(address, uint256) internal pure {
+        revert NotImplemented();
+    }
+
+    function _burn(address, uint256) internal pure {
+        revert NotImplemented();
+    }
 }

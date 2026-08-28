@@ -189,19 +189,16 @@ contract VaultTest is Test {
         uint256 aliceAssetsAfter = vault.convertToAssets(vault.balanceOf(alice));
         uint256 bobAssetsAfter = vault.convertToAssets(vault.balanceOf(bob));
 
-        assertApproxEqRel(
-            aliceAssetsAfter + bobAssetsAfter,
-            aliceAssetsBefore,
-            1e16,
-            "Value preserved across transfer"
-        );
+        assertApproxEqRel(aliceAssetsAfter + bobAssetsAfter, aliceAssetsBefore, 1e16, "Value preserved across transfer");
     }
 
     // ============================================================
     // PRINCIPLE 3: Multi-user / full-flow with state evolution
     // ============================================================
 
-    function testFuzz_fullUserFlow_multiDeposit_withdrawals(uint256 deposit1, uint256 deposit2, uint256 deposit3) public {
+    function testFuzz_fullUserFlow_multiDeposit_withdrawals(uint256 deposit1, uint256 deposit2, uint256 deposit3)
+        public
+    {
         deposit1 = bound(deposit1, 1e18, 50_000e18);
         deposit2 = bound(deposit2, 1e18, 50_000e18);
         deposit3 = bound(deposit3, 1e18, 50_000e18);
@@ -279,7 +276,9 @@ contract VaultTest is Test {
 
         // Invariant: rewards minted as shares, increasing balance and totalSupply equally
         assertGt(rewards, 0, "Rewards should be accrued");
-        assertApproxEqRel(vault.balanceOf(alice), sharesBefore + rewards, 1e16, "Balance should match shares plus rewards");
+        assertApproxEqRel(
+            vault.balanceOf(alice), sharesBefore + rewards, 1e16, "Balance should match shares plus rewards"
+        );
         assertApproxEqRel(vault.totalSupply(), totalSupplyBefore + rewards, 1e16, "totalSupply should match new shares");
 
         // Instead of assuming a 1:1 share price, compute the expected reward
@@ -293,9 +292,9 @@ contract VaultTest is Test {
     // PRINCIPLE 4: Invariant random fuzzing for money conservation
     // ============================================================
 
-    function testFuzz_moneyConservation_multipleOperations(
-        uint256 d1, uint256 d2, uint256 r1, uint256 r2, uint256 t
-    ) public {
+    function testFuzz_moneyConservation_multipleOperations(uint256 d1, uint256 d2, uint256 r1, uint256 r2, uint256 t)
+        public
+    {
         // The invariant: sum of all users' asset claims (convertToAssets(balanceOf))
         // must always be <= total actual assets held + rewards accrued.
 
@@ -391,9 +390,7 @@ contract VaultTest is Test {
         assertEq(burned, shares, "All shares burned on full withdraw");
     }
 
-    function testFuzz_previewFunctionsMatchActual(
-        uint256 depositAmount
-    ) public {
+    function testFuzz_previewFunctionsMatchActual(uint256 depositAmount) public {
         depositAmount = bound(depositAmount, 1, 1_000_000e18);
         asset.approve(address(vault), depositAmount);
         vault.deposit(depositAmount, alice);
