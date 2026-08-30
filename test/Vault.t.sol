@@ -24,6 +24,31 @@ contract VaultTest is Test {
     }
 
     // ============================================================
+    // MODIFIERS
+    // ============================================================
+
+    /// @notice Wipes any leftover state from previous runs to ensure a clean slate.
+    modifier wipeCleanSlate() {
+        _wipeCleanSlate();
+        _;
+    }
+
+    function _wipeCleanSlate() internal {
+        if (vault.balanceOf(alice) > 0) {
+            vm.prank(alice);
+            vault.redeem(vault.balanceOf(alice), alice, alice);
+        }
+        if (vault.balanceOf(bob) > 0) {
+            vm.prank(bob);
+            vault.redeem(vault.balanceOf(bob), bob, bob);
+        }
+        if (vault.balanceOf(carol) > 0) {
+            vm.prank(carol);
+            vault.redeem(vault.balanceOf(carol), carol, carol);
+        }
+    }
+
+    // ============================================================
     // PRINCIPLE 1: Simple single-function mathematical invariants
     // ============================================================
 
@@ -198,18 +223,11 @@ contract VaultTest is Test {
 
     function testFuzz_fullUserFlow_multiDeposit_withdrawals(uint256 deposit1, uint256 deposit2, uint256 deposit3)
         public
+        wipeCleanSlate
     {
         deposit1 = bound(deposit1, 1e18, 50_000e18);
         deposit2 = bound(deposit2, 1e18, 50_000e18);
         deposit3 = bound(deposit3, 1e18, 50_000e18);
-
-        // Wipe any leftover state from previous runs
-        vm.prank(alice);
-        vault.redeem(vault.balanceOf(alice), alice, alice);
-        vm.prank(bob);
-        vault.redeem(vault.balanceOf(bob), bob, bob);
-        vm.prank(carol);
-        vault.redeem(vault.balanceOf(carol), carol, carol);
 
         // Phase 1: Three users deposit
         asset.approve(address(vault), deposit1);
@@ -294,6 +312,7 @@ contract VaultTest is Test {
 
     function testFuzz_moneyConservation_multipleOperations(uint256 d1, uint256 d2)
         public
+        wipeCleanSlate
     {
         // The invariant: sum of all users' asset claims (convertToAssets(balanceOf))
         // must always be <= total actual assets held + rewards accrued.
@@ -305,14 +324,6 @@ contract VaultTest is Test {
         // Also, r1 is redeemed as SHARES (redeem takes shares), not assets.
         uint256 r1 = vm.randomUint(1e18, vault.convertToShares(d1));
         uint256 r2 = vm.randomUint(1e18, vault.convertToShares(d1));
-
-        // if (vault.balanceOf(alice) == 0 || vault.balanceOf(bob) == 0) {
-        //     // Fallback: ensure deposits happen before further operations
-        //     asset.approve(address(vault), d1);
-        //     vault.deposit(d1, alice);
-        //     asset.approve(address(vault), d2);
-        //     vault.deposit(d2, bob);
-        // }
 
         asset.approve(address(vault), d1);
         vault.deposit(d1, alice);
