@@ -34,6 +34,15 @@ contract Token is ERC20, Ownable, ReentrancyGuard {
     }
 
     /**
+     * @dev Burns tokens from a specified address
+     * @param from Address from which tokens will be burned
+     * @param amount Amount of tokens to burn
+     */
+    function burn(address from, uint256 amount) external {
+        _burn(from, amount);
+    }
+
+    /**
      * @dev Sprays a fixed amount of tokens to a list of recipient addresses.
      * @param recipients List of addresses to receive tokens (max 100)
      * @param amount Amount of tokens to send to each recipient
