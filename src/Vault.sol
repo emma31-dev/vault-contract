@@ -3,7 +3,6 @@ pragma solidity ^0.8.13;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
-import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
@@ -44,14 +43,20 @@ contract Vault is IERC4626, Ownable, ReentrancyGuard {
     string private _name;
     string private _symbol;
 
-    // Rewards accrue at 5% per year (approximately 0.0137% per day)
-    // The daily rate is calculated as (5% / 365 days), scaled by 1e18 to preserve precision
-    uint256 private constant REWARD_RATE_PER_DAY = 13698630136986301; // 5% per year, as a daily fraction (result of (5 * 1e18) / 365)
+    // Rewards are minted at a max of 1000 per day over a 1-day window.
+    // Block time is ~1.5 blocks per second: BLOCKS_PER_DAY = 1.5 * 86400 = 129600 blocks/day.
+    uint256 private constant BLOCKS_PER_DAY = 129600; // 1.5 blocks/sec * 86400 sec/day
+    uint256 private constant MAX_MINT_PER_DAY = 1000 * 1e18; // Max 1000 per day, scaled by 1e18
+    uint256 private constant REWARD_RATE_PER_BLOCK = MAX_MINT_PER_DAY / BLOCKS_PER_DAY; // ~7.716e15 per block
 
-    uint256 private lastRewardTimestamp;
+    uint256 private lastRewardBlock;
     uint256 private rewardPerTokenStored;
     mapping(address => uint256) private userRewardPerTokenPaid;
     mapping(address => uint256) private rewards;
+
+    // Mint rate limiting over a rolling 1-day block window
+    uint256 private mintWindowStartBlock;
+    uint256 private mintedInWindow;
 
     // ==================== Events ====================
 
@@ -67,13 +72,15 @@ contract Vault is IERC4626, Ownable, ReentrancyGuard {
     error TransferAmountExceedsBalance();
     error TransferAmountExceedsAllowance();
     error NotImplemented();
+    error MintLimitExceeded();
 
     constructor(address _asset, string memory _name_, string memory _symbol_) Ownable(msg.sender) {
         asset = _asset;
         _name = _name_;
         _symbol = _symbol_;
         _decimals = IERC20Metadata(_asset).decimals();
-        lastRewardTimestamp = block.timestamp;
+        lastRewardBlock = block.number;
+        mintWindowStartBlock = block.number;
     }
 
     // ==================== Accrual Logic ====================
@@ -82,13 +89,13 @@ contract Vault is IERC4626, Ownable, ReentrancyGuard {
         if (_totalShares == 0) {
             return rewardPerTokenStored;
         }
-        uint256 timeElapsed = block.timestamp - lastRewardTimestamp;
-        return rewardPerTokenStored + (timeElapsed * REWARD_RATE_PER_DAY) / 1 days;
+        uint256 blocksElapsed = block.number - lastRewardBlock;
+        return rewardPerTokenStored + (blocksElapsed * REWARD_RATE_PER_BLOCK);
     }
 
     function _updateReward(address account) internal {
         rewardPerTokenStored = _rewardPerToken();
-        lastRewardTimestamp = block.timestamp;
+        lastRewardBlock = block.number;
         if (account != address(0)) {
             rewards[account] = earned(account);
             userRewardPerTokenPaid[account] = rewardPerTokenStored;
@@ -103,8 +110,8 @@ contract Vault is IERC4626, Ownable, ReentrancyGuard {
         return _rewardPerToken();
     }
 
-    function getRewardForDuration(uint256 duration) public pure returns (uint256) {
-        return (REWARD_RATE_PER_DAY * duration) / 1 days;
+    function getRewardForDuration(uint256 durationInBlocks) public pure returns (uint256) {
+        return REWARD_RATE_PER_BLOCK * durationInBlocks;
     }
 
     // ==================== ERC20 Interface ====================
@@ -224,8 +231,9 @@ contract Vault is IERC4626, Ownable, ReentrancyGuard {
         return shares;
     }
 
-    function mint(uint256 shares, address receiver) external override nonReentrant returns (uint256 assets) {
+    function mint(uint256 shares, address receiver) external override onlyOwner nonReentrant returns (uint256 assets) {
         if (shares == 0) revert ZeroShares();
+        _checkMintLimit(shares);
         _updateReward(receiver);
         assets = previewMint(shares);
         _deposit(msg.sender, receiver, assets, shares);
@@ -272,6 +280,18 @@ contract Vault is IERC4626, Ownable, ReentrancyGuard {
     }
 
     // ==================== Internal ====================
+
+    function _checkMintLimit(uint256 shares) internal {
+        uint256 blocksElapsed = block.number - mintWindowStartBlock;
+        if (blocksElapsed >= BLOCKS_PER_DAY) {
+            mintWindowStartBlock = block.number;
+            mintedInWindow = 0;
+        }
+        if (mintedInWindow + shares > MAX_MINT_PER_DAY) {
+            revert MintLimitExceeded();
+        }
+        mintedInWindow += shares;
+    }
 
     function _deposit(address caller, address receiver, uint256 assets, uint256 shares) internal {
         if (shares == 0) revert ZeroSharesMinted();
