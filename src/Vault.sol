@@ -241,7 +241,7 @@ contract Vault is IERC4626, Ownable, ReentrancyGuard {
         if (assets == 0) revert ZeroAssets();
         _updateReward(owner);
         shares = previewWithdraw(assets);
-        _withdraw(owner, receiver, owner, assets, shares);
+        _withdraw(msg.sender, receiver, owner, assets, shares);
         return shares;
     }
 
@@ -254,7 +254,7 @@ contract Vault is IERC4626, Ownable, ReentrancyGuard {
         if (shares == 0) revert ZeroShares();
         _updateReward(owner);
         assets = previewRedeem(shares);
-        _withdraw(owner, receiver, owner, assets, shares);
+        _withdraw(msg.sender, receiver, owner, assets, shares);
         return assets;
     }
 
