@@ -301,13 +301,4 @@ contract Vault is IERC4626, Ownable, ReentrancyGuard {
             _allowances[owner][spender] = allowed - amount;
         }
     }
-
-    // Required by IERC20 interface
-    function _mint(address, uint256) internal pure {
-        revert NotImplemented();
-    }
-
-    function _burn(address, uint256) internal pure {
-        revert NotImplemented();
-    }
 }
