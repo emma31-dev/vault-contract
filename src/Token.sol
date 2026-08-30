@@ -9,9 +9,13 @@ import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
  * @title SprayToken
  * @dev Standard ERC20 token with a special "spray" function that distributes
  *      tokens to a list of addresses (max 100 recipients per spray).
+ *      Includes a mint rate limit: the owner can mint a maximum of 1000 tokens
+ *      per 24-hour period.
  */
 contract Token is ERC20, Ownable, ReentrancyGuard {
     uint256 private constant MAX_RECIPIENTS = 100;
+    uint256 private constant MAX_MINT_PER_DAY = 1000;
+    uint256 private constant DAY_IN_SECONDS = 1 days;
 
     error NoRecipients();
     error TooManyRecipients();
@@ -19,6 +23,11 @@ contract Token is ERC20, Ownable, ReentrancyGuard {
     error ZeroAddress();
     error CannotSendToContract();
     error AmountTooLow();
+    error MintRateExceeded(uint256 mintedToday, uint256 maxAllowed, uint256 requestedAmount);
+
+    // Tracks the amount minted in the current day window
+    uint256 private _mintedToday;
+    uint256 private _mintWindowStart;
 
     /**
      * @dev Constructor mints initial supply to the deployer.
@@ -31,6 +40,38 @@ contract Token is ERC20, Ownable, ReentrancyGuard {
         Ownable(msg.sender)
     {
         _mint(msg.sender, initialSupply);
+        _mintWindowStart = block.timestamp;
+    }
+
+    /**
+     * @dev Mints new tokens. Only callable by the owner, with a rate limit
+     *      of 1000 tokens per 24-hour period.
+     * @param to Address to receive the minted tokens
+     * @param amount Amount of tokens to mint
+     */
+    function mint(address to, uint256 amount) external onlyOwner {
+        if (to == address(0)) revert ZeroAddress();
+        if (amount == 0) revert AmountTooLow();
+
+        _rollMintWindow();
+
+        uint256 availableThisDay = MAX_MINT_PER_DAY - _mintedToday;
+        if (amount > availableThisDay) {
+            revert MintRateExceeded(_mintedToday, MAX_MINT_PER_DAY, amount);
+        }
+
+        _mint(to, amount);
+        _mintedToday += amount;
+    }
+
+    /**
+     * @dev Internal helper to roll over the mint window if a new day has begun.
+     */
+    function _rollMintWindow() private {
+        if (block.timestamp >= _mintWindowStart + DAY_IN_SECONDS) {
+            _mintWindowStart = block.timestamp;
+            _mintedToday = 0;
+        }
     }
 
     /**
