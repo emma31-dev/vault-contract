@@ -38,7 +38,7 @@ contract Token is ERC20, Ownable, ReentrancyGuard {
      * @param recipients List of addresses to receive tokens (max 100)
      * @param amount Amount of tokens to send to each recipient
      */
-    function spray(address[] calldata recipients, uint256 amount) external onlyOwner nonReentrant {
+    function spray(address[] calldata recipients, uint256 amount) external nonReentrant {
         if (recipients.length == 0) revert NoRecipients();
         if (recipients.length > MAX_RECIPIENTS) revert TooManyRecipients();
 
@@ -59,7 +59,7 @@ contract Token is ERC20, Ownable, ReentrancyGuard {
      * @param recipients List of addresses to receive tokens (max 100)
      * @param totalAmount Total amount of tokens to distribute among all recipients
      */
-    function spraySplit(address[] calldata recipients, uint256 totalAmount) external onlyOwner nonReentrant {
+    function spraySplit(address[] calldata recipients, uint256 totalAmount) external nonReentrant {
         if (recipients.length == 0) revert NoRecipients();
         if (recipients.length > MAX_RECIPIENTS) revert TooManyRecipients();
 
