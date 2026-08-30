@@ -292,7 +292,7 @@ contract VaultTest is Test {
     // PRINCIPLE 4: Invariant random fuzzing for money conservation
     // ============================================================
 
-    function testFuzz_moneyConservation_multipleOperations(uint256 d1, uint256 d2, uint256 r1, uint256 r2, uint256 t)
+    function testFuzz_moneyConservation_multipleOperations(uint256 d1, uint256 d2)
         public
     {
         // The invariant: sum of all users' asset claims (convertToAssets(balanceOf))
@@ -303,24 +303,25 @@ contract VaultTest is Test {
         // r1 and r2 must account for the fact that a user's redeemable shares
         // may be reduced by time-based rewards and the convertToAssets rounding.
         // Also, r1 is redeemed as SHARES (redeem takes shares), not assets.
-        r1 = bound(r1, 1e18, vault.convertToShares(d1));
-        r2 = bound(r2, 1e18, vault.convertToShares(d2));
+        uint256 r1 = vm.randomUint(1e18, vault.convertToShares(d1));
+        uint256 r2 = vm.randomUint(1e18, vault.convertToShares(d1));
 
-        if (vault.balanceOf(alice) == 0 || vault.balanceOf(bob) == 0) {
-            // Fallback: ensure deposits happen before further operations
-            asset.approve(address(vault), d1);
-            vault.deposit(d1, alice);
-            asset.approve(address(vault), d2);
-            vault.deposit(d2, bob);
-        }
+        // if (vault.balanceOf(alice) == 0 || vault.balanceOf(bob) == 0) {
+        //     // Fallback: ensure deposits happen before further operations
+        //     asset.approve(address(vault), d1);
+        //     vault.deposit(d1, alice);
+        //     asset.approve(address(vault), d2);
+        //     vault.deposit(d2, bob);
+        // }
 
         asset.approve(address(vault), d1);
         vault.deposit(d1, alice);
         asset.approve(address(vault), d2);
         vault.deposit(d2, bob);
 
-        // Alice transfers some to Carol
-        t = bound(t, 0, vault.balanceOf(alice));
+        // Alice transfers some to Carol (edge case: handle transferring entire balance)
+        uint256 aliceBal = vault.balanceOf(alice);
+        uint256 t = aliceBal > 1 ? vm.randomUint(1, aliceBal - 1) : 0;
         if (t > 0) {
             vm.prank(alice);
             vault.transfer(carol, t);
@@ -328,13 +329,18 @@ contract VaultTest is Test {
 
         // Alice partial redeem (r1 is in SHARES, bound to what she can actually afford)
         uint256 aliceShares = vault.balanceOf(alice);
-        r1 = bound(r1, 1e18, aliceShares);
+        // Ensure aliceShares is at least 1 to avoid min > max in bound
+        if (aliceShares < 1) {
+            aliceShares = 1;
+        }
+        r1 = bound(vm.randomUint(1, aliceShares), 1, aliceShares);
         vm.prank(alice);
         vault.redeem(r1, alice, alice);
 
+
         // Bob partial withdraw (r2 is in SHARES for convertToAssets, but withdraw takes assets)
         uint256 bobShares = vault.balanceOf(bob);
-        r2 = bound(r2, 1e18, bobShares);
+        r2 = vm.randomUint(1e18, bobShares);
         uint256 bobAssets = vault.convertToAssets(r2);
         vm.prank(bob);
         vault.withdraw(bobAssets, bob, bob);
