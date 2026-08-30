@@ -11,7 +11,7 @@ import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
  *      tokens to a list of addresses (max 100 recipients per spray).
  */
 contract Token is ERC20, Ownable, ReentrancyGuard {
-    uint256 public constant MAX_RECIPIENTS = 100;
+    uint256 private constant MAX_RECIPIENTS = 100;
 
     error NoRecipients();
     error TooManyRecipients();
