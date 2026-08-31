@@ -19,8 +19,17 @@ contract VaultTest is Test {
 
     function setUp() public {
         owner = address(this);
+        uint256 gasStart = gasleft();
         asset = new Token("No Null State", "NNS", INITIAL_SUPPLY);
         vault = new Vault(address(asset), "NNS Vault Share", "NSHARE");
+
+        // Log gas usage
+        emit log_named_uint("gasUsed_setUp_constructor", gasStart - gasleft());
+    }
+
+    /// @notice A no-op function to benchmark baseline gas usage of a simple transaction.
+    function test_noOp() public {
+        // Intentionally empty — used to measure baseline gas cost.
     }
 
     // ============================================================
@@ -308,10 +317,7 @@ contract VaultTest is Test {
     // PRINCIPLE 4: Invariant random fuzzing for money conservation
     // ============================================================
 
-    function testFuzz_moneyConservation_multipleOperations(uint256 d1, uint256 d2)
-        public
-        wipeCleanSlate
-    {
+    function testFuzz_moneyConservation_multipleOperations(uint256 d1, uint256 d2) public wipeCleanSlate {
         // The invariant: sum of all users' asset claims (convertToAssets(balanceOf))
         // must always be <= total actual assets held + rewards accrued.
 
@@ -345,7 +351,6 @@ contract VaultTest is Test {
         r1 = bound(vm.randomUint(1, aliceShares), 1, aliceShares);
         vm.prank(alice);
         vault.redeem(r1, alice, alice);
-
 
         // Bob partial withdraw (r2 is in SHARES for convertToAssets, but withdraw takes assets)
         uint256 bobShares = vault.balanceOf(bob);
