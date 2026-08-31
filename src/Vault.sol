@@ -142,7 +142,7 @@ contract Vault is IERC4626, Ownable, ReentrancyGuard {
         return _totalShares;
     }
 
-    function balanceOf(address owner) public view override returns (uint256) {
+    function balanceOf(address owner) public view override notZeroAddress(owner) returns (uint256) {
         return _shares[owner];
     }
 
