@@ -35,8 +35,8 @@ contract Token is ERC20, Ownable, ReentrancyGuard {
      * @param symbol Token symbol
      * @param initialSupply Initial token supply
      */
-    constructor(string memory name, string memory symbol, uint256 initialSupply)
-        ERC20(name, symbol)
+    constructor(string memory _name, string memory _symbol, uint256 initialSupply)
+        ERC20(_name, _symbol)
         Ownable(msg.sender)
     {
         _mint(msg.sender, initialSupply);
