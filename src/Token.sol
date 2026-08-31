@@ -31,8 +31,8 @@ contract Token is ERC20, Ownable, ReentrancyGuard {
 
     /**
      * @dev Constructor mints initial supply to the deployer.
-     * @param name Token name
-     * @param symbol Token symbol
+     * @param _name Token name
+     * @param _symbol Token symbol
      * @param initialSupply Initial token supply
      */
     constructor(string memory _name, string memory _symbol, uint256 initialSupply)
