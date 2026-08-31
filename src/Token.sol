@@ -136,11 +136,4 @@ contract Token is ERC20, Ownable, ReentrancyGuard {
         if (amount == 0) revert AmountTooLow();
         transfer(owner(), amount);
     }
-
-    /**
-     * @dev Override to prevent burning tokens.
-     */
-    function _update(address from, address to, uint256 value) internal override {
-        super._update(from, to, value);
-    }
 }
