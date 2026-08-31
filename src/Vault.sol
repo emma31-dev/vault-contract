@@ -73,8 +73,18 @@ contract Vault is IERC4626, Ownable, ReentrancyGuard {
     error TransferAmountExceedsAllowance();
     error NotImplemented();
     error MintLimitExceeded();
+    error ZeroAddress();
+
+    // ==================== Modifiers ====================
+
+    /// @notice Reverts if any of the provided addresses is the zero address.
+    modifier notZeroAddress(address _addr) {
+        if (_addr == address(0)) revert ZeroAddress();
+        _;
+    }
 
     constructor(address _asset, string memory _name_, string memory _symbol_) Ownable(msg.sender) {
+        if (_asset == address(0)) revert ZeroAddress();
         asset = _asset;
         _name = _name_;
         _symbol = _symbol_;
@@ -136,23 +146,37 @@ contract Vault is IERC4626, Ownable, ReentrancyGuard {
         return _shares[owner];
     }
 
-    function allowance(address owner, address spender) public view override returns (uint256) {
+    function allowance(address owner, address spender)
+        public
+        view
+        override
+        notZeroAddress(owner)
+        notZeroAddress(spender)
+        returns (uint256)
+    {
         return _allowances[owner][spender];
     }
 
-    function approve(address spender, uint256 amount) external override returns (bool) {
+    function approve(address spender, uint256 amount) external override notZeroAddress(spender) returns (bool) {
         if (amount == 0) revert ZeroAssets();
         _allowances[msg.sender][spender] = amount;
         emit Approval(msg.sender, spender, amount);
         return true;
     }
 
-    function transfer(address to, uint256 amount) external override nonReentrant returns (bool) {
+    function transfer(address to, uint256 amount) external override nonReentrant notZeroAddress(to) returns (bool) {
         _transfer(msg.sender, to, amount);
         return true;
     }
 
-    function transferFrom(address from, address to, uint256 amount) external override nonReentrant returns (bool) {
+    function transferFrom(address from, address to, uint256 amount)
+        external
+        override
+        nonReentrant
+        notZeroAddress(from)
+        notZeroAddress(to)
+        returns (bool)
+    {
         uint256 allowed = _allowances[from][msg.sender];
         if (allowed < amount) revert TransferAmountExceedsAllowance();
         if (allowed != type(uint256).max) {
@@ -223,7 +247,13 @@ contract Vault is IERC4626, Ownable, ReentrancyGuard {
         return convertToAssets(shares);
     }
 
-    function deposit(uint256 assets, address receiver) external override nonReentrant returns (uint256 shares) {
+    function deposit(uint256 assets, address receiver)
+        external
+        override
+        nonReentrant
+        notZeroAddress(receiver)
+        returns (uint256 shares)
+    {
         if (assets == 0) revert ZeroAssets();
         _updateReward(receiver);
         shares = previewDeposit(assets);
@@ -231,7 +261,14 @@ contract Vault is IERC4626, Ownable, ReentrancyGuard {
         return shares;
     }
 
-    function mint(uint256 shares, address receiver) external override onlyOwner nonReentrant returns (uint256 assets) {
+    function mint(uint256 shares, address receiver)
+        external
+        override
+        onlyOwner
+        nonReentrant
+        notZeroAddress(receiver)
+        returns (uint256 assets)
+    {
         if (shares == 0) revert ZeroShares();
         _checkMintLimit(shares);
         _updateReward(receiver);
@@ -244,6 +281,8 @@ contract Vault is IERC4626, Ownable, ReentrancyGuard {
         external
         override
         nonReentrant
+        notZeroAddress(receiver)
+        notZeroAddress(owner)
         returns (uint256 shares)
     {
         if (assets == 0) revert ZeroAssets();
@@ -257,6 +296,8 @@ contract Vault is IERC4626, Ownable, ReentrancyGuard {
         external
         override
         nonReentrant
+        notZeroAddress(receiver)
+        notZeroAddress(owner)
         returns (uint256 assets)
     {
         if (shares == 0) revert ZeroShares();
