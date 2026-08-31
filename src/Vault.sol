@@ -32,6 +32,8 @@ interface IERC4626 is IERC20 {
 }
 
 contract Vault is IERC4626, Ownable, ReentrancyGuard {
+    using SafeERC20 for IERC20;
+
     address public immutable override asset;
     uint256 private _totalShares;
     mapping(address => uint256) private _shares;
