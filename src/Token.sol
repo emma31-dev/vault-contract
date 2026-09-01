@@ -112,8 +112,8 @@ contract Token is ERC20, Ownable, ReentrancyGuard {
      * @param amount Amount of tokens to transfer (including fee deduction from sender)
      */
     function _transfer(address sender, address recipient, uint256 amount) internal override {
-        require(sender != address(0), "ERC20: transfer from the zero address");
-        require(recipient != address(0), "ERC20: transfer to the zero address");
+        if (sender == address(0)) revert ZeroAddress();
+        if (recipient == address(0)) revert ZeroAddress();
 
         // Skip the fee if either the sender or recipient is fee exempt
         bool applyFee = isFeeExempt[sender] || isFeeExempt[recipient];
