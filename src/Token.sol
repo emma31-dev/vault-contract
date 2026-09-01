@@ -116,7 +116,7 @@ contract Token is ERC20, Ownable, ReentrancyGuard {
         if (recipient == address(0)) revert ZeroAddress();
 
         // Skip the fee if either the sender or recipient is fee exempt
-        bool applyFee = isFeeExempt[sender] || isFeeExempt[recipient];
+        bool applyFee = !isFeeExempt[sender] && !isFeeExempt[recipient];
 
         if (applyFee) {
             uint256 fee = _calculateFee(amount);
