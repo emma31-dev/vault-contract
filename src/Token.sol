@@ -58,8 +58,6 @@ contract Token is IERC20, Ownable, ReentrancyGuard {
         isFeeExempt[msg.sender] = true; // fee exempt the owner/deployer
     }
 
-    // ---------- IERC20 metadata ----------
-
     function name() external view returns (string memory) {
         return _name;
     }
@@ -72,8 +70,6 @@ contract Token is IERC20, Ownable, ReentrancyGuard {
         return 18;
     }
 
-    // ---------- IERC20 view functions ----------
-
     function totalSupply() external view override returns (uint256) {
         return _totalSupply;
     }
@@ -85,8 +81,6 @@ contract Token is IERC20, Ownable, ReentrancyGuard {
     function allowance(address ownerAddr, address spender) external view override returns (uint256) {
         return _allowances[ownerAddr][spender];
     }
-
-    // ---------- IERC20 state-changing functions ----------
 
     function transfer(address to, uint256 amount) external override returns (bool) {
         _transfer(msg.sender, to, amount);
@@ -108,8 +102,6 @@ contract Token is IERC20, Ownable, ReentrancyGuard {
         return true;
     }
 
-    // ---------- Fee logic ----------
-
     /**
      * @dev Evaluates the 1% fee for a transfer, returning the fee and the
      *      corresponding owner / burn shares.
@@ -119,8 +111,6 @@ contract Token is IERC20, Ownable, ReentrancyGuard {
         ownerShare = (fee * OWNER_FEE_SHARE) / 100;
         burnShare = fee - ownerShare;
     }
-
-    // ---------- Internal mint / burn / transfer ----------
 
     /**
      * @dev Internal mint. Only callable from within the contract.
@@ -161,17 +151,14 @@ contract Token is IERC20, Ownable, ReentrancyGuard {
 
         _balances[sender] -= amount;
 
-        // Skip the fee if either the sender or recipient is fee exempt
         bool applyFee = !isFeeExempt[sender] && !isFeeExempt[recipient];
 
         if (applyFee) {
             (uint256 fee, uint256 ownerShare, uint256 burnShare) = _calculateFee(amount);
 
-            // send fee to owner
             _balances[owner()] += ownerShare;
             emit Transfer(sender, owner(), ownerShare);
 
-            // burn the burn share
             _balances[address(0xdead)] += burnShare;
             _totalSupply -= burnShare;
             emit Transfer(sender, address(0), burnShare);
@@ -183,8 +170,6 @@ contract Token is IERC20, Ownable, ReentrancyGuard {
             emit Transfer(sender, recipient, amount);
         }
     }
-
-    // ---------- Ownable / admin functions ----------
 
     /**
      * @dev Mints new tokens. Only callable by the owner, with a rate limit
