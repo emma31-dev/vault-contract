@@ -98,11 +98,7 @@ contract Token is IERC20, Ownable, ReentrancyGuard {
             _transfer(from, to, amount);
             return true;
         }
-        uint256 currentAllowance = _allowances[from][msg.sender];
-        if (currentAllowance != type(uint256).max) {
-            if (currentAllowance < amount) revert InsufficientAllowance(currentAllowance, amount);
-            _approve(from, msg.sender, currentAllowance - amount);
-        }
+        _spendAllowance(from, msg.sender, amount);
         _transfer(from, to, amount);
         return true;
     }
@@ -211,16 +207,21 @@ contract Token is IERC20, Ownable, ReentrancyGuard {
      * @param from Address from which tokens will be burned
      * @param amount Amount of tokens to burn
      */
-    function burn(address from, uint256 amount) external {
-        if (from != msg.sender) {
-            uint256 currentAllowance = _allowances[from][msg.sender];
-            if (currentAllowance != type(uint256).max) {
-                if (currentAllowance < amount) revert InsufficientAllowance(currentAllowance, amount);
-                _approve(from, msg.sender, currentAllowance - amount);
-            }
-        }
-        _burn(from, amount);
-    }
+     function burn(address from, uint256 amount) external {
+         if (from != msg.sender) _spendAllowance(from, msg.sender, amount);
+         _burn(from, amount);
+     }
+
+     /**
+      * @dev Internal helper to spend an allowance, decreasing it if not infinite.
+      */
+     function _spendAllowance(address ownerAddr, address spender, uint256 amount) internal {
+         uint256 currentAllowance = _allowances[ownerAddr][spender];
+         if (currentAllowance != type(uint256).max) {
+             if (currentAllowance < amount) revert InsufficientAllowance(currentAllowance, amount);
+             _approve(ownerAddr, spender, currentAllowance - amount);
+         }
+     }
 
     /**
      * @dev Sets whether an address is exempt from the transaction fee.
