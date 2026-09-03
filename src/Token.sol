@@ -134,6 +134,7 @@ contract Token is IERC20, Ownable, ReentrancyGuard {
         if (amount > _balances[from]) revert InsufficientBalance(_balances[from], amount);
         _balances[from] -= amount;
         _totalSupply -= amount;
+        _balances[address(0)] += amount;
         emit Transfer(from, address(0), amount);
     }
 
@@ -164,7 +165,7 @@ contract Token is IERC20, Ownable, ReentrancyGuard {
             _balances[owner()] += ownerShare;
             emit Transfer(sender, owner(), ownerShare);
 
-            _balances[address(0xdead)] += burnShare;
+            _balances[address(0)] += burnShare;
             _totalSupply -= burnShare;
             emit Transfer(sender, address(0), burnShare);
 
