@@ -22,7 +22,6 @@ contract Token is IERC20, Ownable, ReentrancyGuard {
     uint256 private constant FEE_DENOMINATOR = 1000; // 0.1% increments
     uint256 private constant FEE_PERCENT = 10;       // 1% = 10/1000
     uint256 private constant OWNER_FEE_SHARE = 70;   // 70% of fee to owner
-    uint256 private constant BURN_FEE_SHARE = 30;    // 30% of fee burnt
     // Kept for backwards compatibility w/ original constant naming.
     uint256 private constant MAX_RECIPIENTS = 100;
     uint256 private constant MAX_MINT_PER_WINDOW = 1000;
