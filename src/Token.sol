@@ -108,7 +108,7 @@ contract Token is IERC20, Ownable, ReentrancyGuard {
      */
     function _calculateFee(uint256 amount) private pure returns (uint256 fee, uint256 ownerShare, uint256 burnShare) {
         fee = amount / FEE_DENOMINATOR;
-        ownerShare = (fee * OWNER_FEE_SHARE) / 100;
+        ownerShare = (fee * OWNER_FEE_SHARE) / FEE_DENOMINATOR;
         burnShare = fee - ownerShare;
     }
 
