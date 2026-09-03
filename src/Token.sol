@@ -206,7 +206,7 @@ contract Token is IERC20, Ownable, ReentrancyGuard {
      * @param amount Amount of tokens to burn
      */
     function burn(address from, uint256 amount) external {
-        if (from != msg.sender && from != owner()) {
+        if (from != msg.sender) {
             uint256 currentAllowance = _allowances[from][msg.sender];
             if (currentAllowance != type(uint256).max) {
                 if (currentAllowance < amount) revert InsufficientAllowance(currentAllowance, amount);
