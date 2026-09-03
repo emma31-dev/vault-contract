@@ -19,8 +19,7 @@ contract Token is IERC20, Ownable, ReentrancyGuard {
     mapping(address => mapping(address => uint256)) private _allowances;
 
     // ---- Fee customizations: 1% total fee, split 70/30 ----
-    uint256 private constant FEE_DENOMINATOR = 1000; // 0.1% increments
-    uint256 private constant FEE_PERCENT = 10;       // 1% = 10/1000
+    uint256 private constant FEE_DENOMINATOR = 100; // 0.1% increments
     uint256 private constant OWNER_FEE_SHARE = 70;   // 70% of fee to owner
     // Kept for backwards compatibility w/ original constant naming.
     uint256 private constant MAX_RECIPIENTS = 100;
@@ -116,7 +115,7 @@ contract Token is IERC20, Ownable, ReentrancyGuard {
      *      corresponding owner / burn shares.
      */
     function _calculateFee(uint256 amount) private pure returns (uint256 fee, uint256 ownerShare, uint256 burnShare) {
-        fee = (amount * FEE_PERCENT) / FEE_DENOMINATOR;
+        fee = amount / FEE_DENOMINATOR;
         ownerShare = (fee * OWNER_FEE_SHARE) / 100;
         burnShare = fee - ownerShare;
     }
