@@ -82,7 +82,7 @@ contract Token is IERC20, Ownable, ReentrancyGuard {
         return _allowances[ownerAddr][spender];
     }
 
-    function transfer(address to, uint256 amount) external override returns (bool) {
+    function transfer(address to, uint256 amount) external override nonReentrant returns (bool) {
         _transfer(msg.sender, to, amount);
         return true;
     }
@@ -92,7 +92,7 @@ contract Token is IERC20, Ownable, ReentrancyGuard {
         return true;
     }
 
-    function transferFrom(address from, address to, uint256 amount) external override returns (bool) {
+    function transferFrom(address from, address to, uint256 amount) external override nonReentrant returns (bool) {
         if (msg.sender == from) {
             // Caller is the token holder themselves, no allowance check needed
             _transfer(from, to, amount);
