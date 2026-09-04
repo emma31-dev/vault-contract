@@ -3,9 +3,10 @@ pragma solidity ^0.8.13;
 
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
-import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 
 interface IERC4626 is IERC20 {
     event Deposit(address indexed sender, address indexed owner, uint256 assets, uint256 shares);
@@ -31,10 +32,10 @@ interface IERC4626 is IERC20 {
     function redeem(uint256 shares, address receiver, address owner) external returns (uint256 assets);
 }
 
-contract Vault is IERC4626, Ownable, ReentrancyGuard {
+contract Vault is Initializable, IERC4626, OwnableUpgradeable, ReentrancyGuard {
     using SafeERC20 for IERC20;
 
-    address public immutable override asset;
+    address public override asset;
     uint256 private _totalShares;
     mapping(address => uint256) private _shares;
     mapping(address => mapping(address => uint256)) private _allowances;
@@ -83,8 +84,14 @@ contract Vault is IERC4626, Ownable, ReentrancyGuard {
         _;
     }
 
-    constructor(address _asset, string memory _name_, string memory _symbol_) Ownable(msg.sender) {
+    /// @custom:oz-upgrades-unsafe-allow constructor
+    constructor() {
+        _disableInitializers();
+    }
+
+    function initialize(address _asset, string memory _name_, string memory _symbol_) public initializer {
         if (_asset == address(0)) revert ZeroAddress();
+        __Ownable_init(msg.sender);
         asset = _asset;
         _name = _name_;
         _symbol = _symbol_;

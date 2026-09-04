@@ -4,7 +4,7 @@ pragma solidity ^0.8.13;
 import "forge-std/Test.sol";
 import "../src/Vault.sol";
 import "../src/Token.sol";
-import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
 contract VaultTest is Test {
     Vault public vault;
@@ -20,10 +20,18 @@ contract VaultTest is Test {
     function setUp() public {
         owner = address(this);
         uint256 gasStart = gasleft();
-        asset = new Token("No Null State", "NNS", INITIAL_SUPPLY);
-        vault = new Vault(address(asset), "NNS Vault Share", "NSHARE");
 
-        // Log gas usage
+        asset = new Token("No Null State", "NNS", INITIAL_SUPPLY);
+
+        // Deploy implementation + ERC1967 proxy, calling initialize in one step
+        Vault impl = new Vault();
+        bytes memory initData = abi.encodeCall(
+            Vault.initialize,
+            (address(asset), "NNS Vault Share", "NSHARE")
+        );
+        ERC1967Proxy proxy = new ERC1967Proxy(address(impl), initData);
+        vault = Vault(address(proxy));
+
         emit log_named_uint("gasUsed_setUp_constructor", gasStart - gasleft());
     }
 

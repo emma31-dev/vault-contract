@@ -1,13 +1,16 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.28;
 
-import {Script, console} from "../lib/forge-std/src/Script.sol";
+import {Script, console} from "forge-std/Script.sol";
+import {ERC1967Proxy} from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import {Token} from "../src/Token.sol";
 import {Vault} from "../src/Vault.sol";
 
 /**
  * @title Deploy
- * @notice Deploys Token then Vault (using the token's address as the underlying asset).
+ * @notice Deploys Token then Vault behind an ERC1967 proxy.
+ *         Vault is upgradeable — the implementation is deployed first,
+ *         then wrapped in a proxy that calls initialize() atomically.
  *
  * Usage
  * ─────
@@ -43,7 +46,8 @@ contract Deploy is Script {
 
     // ── deployed addresses (set during run, useful for tests that inherit) ─
     Token public token;
-    Vault public vault;
+    Vault public vault;          // points to the proxy
+    address public vaultImpl;    // the bare implementation address
 
     function run() external {
         // ── resolve config ────────────────────────────────────────────────
@@ -64,9 +68,20 @@ contract Deploy is Script {
         console.log("  totalSupply   :", token.totalSupply());
         console.log("  owner         :", token.owner());
 
-        // 2. Deploy Vault, passing the freshly deployed token address
-        vault = new Vault(address(token), vaultName, vaultSymbol);
-        console.log("Vault deployed  :", address(vault));
+        // 2. Deploy Vault implementation (constructor disables initializers)
+        Vault impl = new Vault();
+        vaultImpl = address(impl);
+        console.log("Vault impl      :", vaultImpl);
+
+        // 3. Deploy ERC1967 proxy, calling initialize() atomically
+        bytes memory initData = abi.encodeCall(
+            Vault.initialize,
+            (address(token), vaultName, vaultSymbol)
+        );
+        ERC1967Proxy proxy = new ERC1967Proxy(vaultImpl, initData);
+        vault = Vault(address(proxy));
+
+        console.log("Vault proxy     :", address(vault));
         console.log("  name          :", vault.name());
         console.log("  symbol        :", vault.symbol());
         console.log("  asset         :", vault.asset());
@@ -77,8 +92,9 @@ contract Deploy is Script {
         // ── summary ───────────────────────────────────────────────────────
         console.log("---");
         console.log("Deployment complete.");
-        console.log("  Token :", address(token));
-        console.log("  Vault :", address(vault));
+        console.log("  Token     :", address(token));
+        console.log("  Vault impl:", vaultImpl);
+        console.log("  Vault     :", address(vault));
     }
 
     // ── helpers ───────────────────────────────────────────────────────────
