@@ -134,15 +134,14 @@ contract VaultTest is Test {
         asset.approve(address(vault), amount);
         uint256 shares = vault.deposit(amount, alice);
 
-        // Full flow: deposit -> redeem should return at least what was deposited
-        // (rewards make it non-personal, so we can't lose)
-        uint256 assetsOut = vault.redeem(shares, alice, alice);
+        // alice owns the shares, so she must be the caller for redeem
+        // (otherwise the vault's _spendAllowance fires for the test contract)
+        uint256 assetsOut;
+        vm.prank(alice);
+        assetsOut = vault.redeem(shares, alice, alice);
 
-        // Solvency invariant: user can always get more than or equal to what they gave
-        // (with rewards accruing at 5% yearly, at time 0 they should get approximately equal)
+        // Solvency invariant: user gets back at least what they deposited
         assertGe(assetsOut, amount, "Redeem must return at least the deposit");
-
-        // Everything should be fully redeemed
         assertEq(vault.balanceOf(alice), 0, "No shares remaining after full redeem");
         assertGt(assetsOut, 0);
     }
@@ -153,9 +152,11 @@ contract VaultTest is Test {
         asset.approve(address(vault), amount);
         uint256 shares = vault.deposit(amount, alice);
 
-        // Full flow: deposit -> withdraw(exactAssets)
+        // alice owns the shares — she must be the caller for withdraw
         uint256 maxAssets = vault.maxWithdraw(alice);
-        uint256 sharesBurned = vault.withdraw(maxAssets, alice, alice);
+        uint256 sharesBurned;
+        vm.prank(alice);
+        sharesBurned = vault.withdraw(maxAssets, alice, alice);
 
         // Invariant: shares burned should equal shares held
         assertEq(sharesBurned, shares, "Withdraw of maxAssets should burn all shares");
@@ -164,21 +165,26 @@ contract VaultTest is Test {
     }
 
     function testFuzz_mintThenRedeem(uint256 sharesRequested) public {
-        sharesRequested = bound(sharesRequested, 1e18, 100_000e18);
+        // vault.mint() is onlyOwner and rate-limited to MAX_MINT_PER_DAY = 1000e18 shares.
+        // Bound well below the limit so the window never overflows.
+        sharesRequested = bound(sharesRequested, 1e18, 500e18);
 
-        // First deposit to create shares
+        // First deposit some assets so the vault has a non-zero asset base,
+        // which makes previewMint return a sensible assets figure.
         asset.approve(address(vault), 100_000e18);
         vault.deposit(100_000e18, bob);
 
+        // owner (test contract) calls mint — approve enough for previewMint assets
         asset.approve(address(vault), type(uint256).max);
         uint256 assetsSpent = vault.mint(sharesRequested, alice);
 
         // Invariant: minted shares exactly match requested
         assertEq(vault.balanceOf(alice), sharesRequested, "Mint should produce exact shares");
 
-        // Redeem all
+        // alice redeems her shares (she is the owner of those shares)
+        vm.prank(alice);
         uint256 assetsBack = vault.redeem(sharesRequested, alice, alice);
-        assertGe(assetsBack, assetsSpent, "Should at least get back what was spent");
+        assertGe(assetsBack, assetsSpent, "Should get back at least what was spent");
     }
 
     function test_transferUpdatesShareOwnership() public {
@@ -289,28 +295,24 @@ contract VaultTest is Test {
         asset.approve(address(vault), deposit);
         vault.deposit(deposit, alice);
 
-        uint256 sharesBefore = vault.balanceOf(alice);
+        uint256 sharesBefore    = vault.balanceOf(alice);
         uint256 totalSupplyBefore = vault.totalSupply();
 
-        // Advance time 365 days (1 year -> 5% reward)
-        vm.warp(block.timestamp + 365 days);
+        // Vault rewards accrue by block number (REWARD_RATE_PER_BLOCK per block),
+        // not by timestamp. Roll forward one full day window (129_600 blocks).
+        uint256 BLOCKS_PER_DAY = 129_600;
+        vm.roll(block.number + BLOCKS_PER_DAY);
 
-        // Claim rewards
+        uint256 earnedBefore = vault.earned(alice);
+        assertGt(earnedBefore, 0, "Rewards should accrue after rolling blocks forward");
+
         vm.prank(alice);
-        uint256 rewards = vault.claimRewards();
+        uint256 rewardShares = vault.claimRewards();
 
-        // Invariant: rewards minted as shares, increasing balance and totalSupply equally
-        assertGt(rewards, 0, "Rewards should be accrued");
-        assertApproxEqRel(
-            vault.balanceOf(alice), sharesBefore + rewards, 1e16, "Balance should match shares plus rewards"
-        );
-        assertApproxEqRel(vault.totalSupply(), totalSupplyBefore + rewards, 1e16, "totalSupply should match new shares");
-
-        // Instead of assuming a 1:1 share price, compute the expected reward
-        // based on what the vault actually reports as earned in asset terms.
-        // uint256 earnedAssets = vault.earned(alice);
-        // uint256 expectedShares = vault.convertToShares(earnedAssets);
-        // assertApproxEqRel(rewards, expectedShares, 1e16, "Claimed rewards match earned assets");
+        assertGt(rewardShares, 0, "Claimed rewards should be > 0");
+        assertEq(vault.balanceOf(alice),  sharesBefore + rewardShares,  "Balance increases by reward shares");
+        assertEq(vault.totalSupply(),     totalSupplyBefore + rewardShares, "totalSupply increases by reward shares");
+        assertEq(vault.earned(alice),     0, "Earned should reset to 0 after claim");
     }
 
     // ============================================================
