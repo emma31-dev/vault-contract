@@ -112,7 +112,7 @@ contract Vault is IERC4626, Ownable, ReentrancyGuard {
         }
     }
 
-    function earned(address account) public view returns (uint256) {
+    function earned(address account) public view notZeroAddress(account) returns (uint256) {
         return (_shares[account] * (_rewardPerToken() - userRewardPerTokenPaid[account])) / 1e18 + rewards[account];
     }
 
