@@ -423,6 +423,104 @@ contract TokenTest is Test {
     }
 
     // ====================================================================
+    // SET FEES (global kill-switch)
+    // ====================================================================
+
+    function test_setFees_ownerCanDisableFees() public {
+        assertTrue(token.feesEnabled());
+        token.setFees(false);
+        assertFalse(token.feesEnabled());
+    }
+
+    function test_setFees_ownerCanReEnableFees() public {
+        token.setFees(false);
+        token.setFees(true);
+        assertTrue(token.feesEnabled());
+    }
+
+    function test_setFees_revertsForNonOwner() public {
+        vm.prank(alice);
+        vm.expectRevert();
+        token.setFees(false);
+    }
+
+    function test_setFees_disabledMeansNoFeeOnAnyTransfer() public {
+        token.setFees(false);
+        uint256 amount = 1_000e18;
+        token.transfer(alice, amount); // owner→alice, no fee anyway
+
+        uint256 supplyBefore = token.totalSupply();
+        uint256 ownerBal     = token.balanceOf(owner);
+
+        vm.prank(alice);
+        token.transfer(bob, amount); // fees disabled globally
+
+        assertEq(token.balanceOf(bob),   amount, "bob gets full amount when fees disabled");
+        assertEq(token.balanceOf(owner), ownerBal, "owner gets no fee share");
+        assertEq(token.totalSupply(),    supplyBefore, "no burn when fees disabled");
+    }
+
+    function test_setFees_reenablingRestoresFeeOnTransfer() public {
+        token.setFees(false);
+        token.setFees(true);
+
+        uint256 amount = 1_000e18;
+        token.transfer(alice, amount);
+
+        uint256 supplyBefore = token.totalSupply();
+
+        vm.prank(alice);
+        token.transfer(bob, amount);
+
+        (uint256 fee,,uint256 burnShare) = _fee(amount);
+        assertEq(token.balanceOf(bob), amount - fee, "fee applied after re-enable");
+        assertEq(token.totalSupply(),  supplyBefore - burnShare);
+    }
+
+    // ====================================================================
+    // INCREASE / DECREASE ALLOWANCE
+    // ====================================================================
+
+    function test_increaseAllowance_addsToExisting() public {
+        token.approve(alice, 100e18);
+        token.increaseAllowance(alice, 50e18);
+        assertEq(token.allowance(owner, alice), 150e18);
+    }
+
+    function test_increaseAllowance_fromZero() public {
+        token.increaseAllowance(alice, 200e18);
+        assertEq(token.allowance(owner, alice), 200e18);
+    }
+
+    function test_increaseAllowance_revertsOnZeroAddress() public {
+        vm.expectRevert(Token.ZeroAddress.selector);
+        token.increaseAllowance(address(0), 100e18);
+    }
+
+    function test_decreaseAllowance_subtractsFromExisting() public {
+        token.approve(alice, 200e18);
+        token.decreaseAllowance(alice, 50e18);
+        assertEq(token.allowance(owner, alice), 150e18);
+    }
+
+    function test_decreaseAllowance_toZero() public {
+        token.approve(alice, 100e18);
+        token.decreaseAllowance(alice, 100e18);
+        assertEq(token.allowance(owner, alice), 0);
+    }
+
+    function test_decreaseAllowance_revertsOnUnderflow() public {
+        token.approve(alice, 50e18);
+        vm.expectRevert(Token.AllowanceUnderflow.selector);
+        token.decreaseAllowance(alice, 100e18);
+    }
+
+    function test_decreaseAllowance_revertsOnZeroAddress() public {
+        vm.expectRevert(Token.ZeroAddress.selector);
+        token.decreaseAllowance(address(0), 50e18);
+    }
+
+    // ====================================================================
     // SPRAY
     // ====================================================================
 
@@ -442,21 +540,19 @@ contract TokenTest is Test {
     }
 
     function test_spray_senderExemptedDuringLoop_recipientsGetFullAmount() public {
-        // spray() has two distinct balance figures:
-        //   1. Pre-check: requires (amount + fee) * count  — conservative guard
-        //   2. Actual debit: amount * count  — because sender is exempted in the loop
-        //
-        // We fund alice with the pre-check amount so the guard passes, then
-        // verify the actual debit matches the lower (amount * count) figure.
+        // spray() computes: totalDebit = (amount + fee) * count  (non-exempt sender)
+        // The loop sends totalDebit/count = (amount + fee) per recipient.
+        // Sender is exempted during the loop, so the full (amount + fee) lands with
+        // each recipient and alice is left with exactly 0 (fully debited).
         uint256 amount = 100e18;
         uint256 count  = 3;
 
         (uint256 feePerTransfer,,) = _fee(amount);
-        uint256 preCheckRequired = (amount + feePerTransfer) * count; // what spray demands
-        uint256 actualDebit      = amount * count;                     // what is actually spent
+        uint256 totalDebit       = (amount + feePerTransfer) * count;
+        uint256 perRecipientGets = amount + feePerTransfer; // what each recipient actually receives
 
-        token.transfer(alice, preCheckRequired); // fund exactly to pre-check threshold
-        uint256 aliceBalBefore = token.balanceOf(alice);
+        token.transfer(alice, totalDebit); // fund exactly totalDebit
+        assertEq(token.balanceOf(alice), totalDebit);
 
         address[] memory recipients = new address[](count);
         recipients[0] = address(0xDEEE1);
@@ -466,13 +562,13 @@ contract TokenTest is Test {
         vm.prank(alice);
         token.spray(recipients, amount);
 
-        assertEq(
-            token.balanceOf(alice),
-            aliceBalBefore - actualDebit,
-            "alice debited amount * count (sender exempt during loop, not amount+fee)"
-        );
+        assertEq(token.balanceOf(alice), 0, "alice fully debited (totalDebit spent)");
         for (uint256 i = 0; i < count; i++) {
-            assertEq(token.balanceOf(recipients[i]), amount, "each recipient gets full amount");
+            assertEq(
+                token.balanceOf(recipients[i]),
+                perRecipientGets,
+                "each recipient gets amount + fee (totalDebit/count, sender was exempt)"
+            );
         }
     }
 
@@ -588,18 +684,20 @@ contract TokenTest is Test {
     }
 
     function test_spraySplit_senderExemptedDuringLoop() public {
-        // Same pattern as spray: pre-check uses (perRecipient + fee) * count
-        // but actual loop debit is perRecipient * count because sender is exempt.
+        // spraySplit() computes: totalDebit = (perRecipient + fee) * count (non-exempt sender)
+        // The loop sends totalDebit/count = (perRecipient + fee) per recipient.
+        // Sender is exempted, so full (perRecipient + fee) lands with each recipient
+        // and alice is fully debited (balance → 0).
         uint256 totalAmount  = 300e18;
         uint256 count        = 3;
         uint256 perRecipient = totalAmount / count; // 100e18
 
         (uint256 feePerTransfer,,) = _fee(perRecipient);
-        uint256 preCheckRequired = (perRecipient + feePerTransfer) * count;
-        uint256 actualDebit      = perRecipient * count;
+        uint256 totalDebit       = (perRecipient + feePerTransfer) * count;
+        uint256 perRecipientGets = perRecipient + feePerTransfer;
 
-        token.transfer(alice, preCheckRequired);
-        uint256 aliceBalBefore = token.balanceOf(alice);
+        token.transfer(alice, totalDebit); // fund exactly totalDebit
+        assertEq(token.balanceOf(alice), totalDebit);
 
         address[] memory recipients = new address[](count);
         recipients[0] = address(0xEEEE1);
@@ -609,13 +707,13 @@ contract TokenTest is Test {
         vm.prank(alice);
         token.spraySplit(recipients, totalAmount);
 
-        assertEq(
-            token.balanceOf(alice),
-            aliceBalBefore - actualDebit,
-            "alice debited perRecipient * count (no fee while exempt)"
-        );
+        assertEq(token.balanceOf(alice), 0, "alice fully debited (totalDebit spent)");
         for (uint256 i = 0; i < count; i++) {
-            assertEq(token.balanceOf(recipients[i]), perRecipient, "each recipient gets full share");
+            assertEq(
+                token.balanceOf(recipients[i]),
+                perRecipientGets,
+                "each recipient gets perRecipient + fee (totalDebit/count, sender was exempt)"
+            );
         }
     }
 
