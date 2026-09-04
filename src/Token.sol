@@ -34,6 +34,7 @@ contract Token is IERC20, Ownable, ReentrancyGuard {
     error AmountTooLow();
     error MintRateExceeded(uint256 mintedThisWindow, uint256 maxAllowed, uint256 requestedAmount);
     error InsufficientAllowance(uint256 allowed, uint256 required);
+    error AllowanceUnderflow();
 
     // Tracks the amount minted in the current block window
     uint256 private _mintedThisWindow;
@@ -90,6 +91,34 @@ contract Token is IERC20, Ownable, ReentrancyGuard {
 
     function approve(address spender, uint256 amount) external returns (bool) {
         _approve(msg.sender, spender, amount);
+        return true;
+    }
+
+    /**
+     * @dev Atomically increases the allowance granted to a spender.
+     *      Safer than `approve` as it prevents race conditions where a spender
+     *      front-runs an approval change to steal tokens.
+     * @param spender Address authorized to spend the allowance
+     * @param addedValue Amount to add to the current allowance
+     */
+    function increaseAllowance(address spender, uint256 addedValue) external returns (bool) {
+        if (spender == address(0)) revert ZeroAddress();
+        _approve(msg.sender, spender, _allowances[msg.sender][spender] + addedValue);
+        return true;
+    }
+
+    /**
+     * @dev Atomically decreases the allowance granted to a spender.
+     *      Safer than `approve` as it prevents race conditions where a spender
+     *      front-runs an approval change to steal tokens.
+     * @param spender Address authorized to spend the allowance
+     * @param subtractedValue Amount to subtract from the current allowance
+     */
+    function decreaseAllowance(address spender, uint256 subtractedValue) external returns (bool) {
+        if (spender == address(0)) revert ZeroAddress();
+        uint256 currentAllowance = _allowances[msg.sender][spender];
+        if (currentAllowance < subtractedValue) revert AllowanceUnderflow();
+        _approve(msg.sender, spender, currentAllowance - subtractedValue);
         return true;
     }
 
