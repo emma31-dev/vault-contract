@@ -71,29 +71,29 @@ contract Token is IERC20, Ownable, ReentrancyGuard {
         return 18;
     }
 
-    function totalSupply() external view override returns (uint256) {
+    function totalSupply() external view returns (uint256) {
         return _totalSupply;
     }
 
-    function balanceOf(address account) public view override returns (uint256) {
+    function balanceOf(address account) public view returns (uint256) {
         return _balances[account];
     }
 
-    function allowance(address ownerAddr, address spender) external view override returns (uint256) {
+    function allowance(address ownerAddr, address spender) external view returns (uint256) {
         return _allowances[ownerAddr][spender];
     }
 
-    function transfer(address to, uint256 amount) external override nonReentrant returns (bool) {
+    function transfer(address to, uint256 amount) external nonReentrant returns (bool) {
         _transfer(msg.sender, to, amount);
         return true;
     }
 
-    function approve(address spender, uint256 amount) external override returns (bool) {
+    function approve(address spender, uint256 amount) external returns (bool) {
         _approve(msg.sender, spender, amount);
         return true;
     }
 
-    function transferFrom(address from, address to, uint256 amount) external override nonReentrant returns (bool) {
+    function transferFrom(address from, address to, uint256 amount) external nonReentrant returns (bool) {
         if (msg.sender == from) {
             // Caller is the token holder themselves, no allowance check needed
             _transfer(from, to, amount);
