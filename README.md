@@ -20,7 +20,7 @@ An upgradeable ERC-4626 vault (behind an ERC-1967 proxy) that accepts `NNS` as t
 
 ---
 
-## Deployments — Polygon Mainnet
+## Deployments: Polygon Mainnet
 
 | Contract | Address |
 |---|---|
