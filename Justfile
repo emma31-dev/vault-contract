@@ -51,8 +51,7 @@ deploy:
     forge script script/Deploy.s.sol:Deploy \
         --rpc-url "{{ rpc_url }}" \
         --private-key "{{ private_key }}" \
-        --broadcast \
-        --verify
+        --broadcast
 
 # ── local node ────────────────────────────────────────────────────────────────
 
