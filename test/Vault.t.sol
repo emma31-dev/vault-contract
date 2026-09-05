@@ -25,10 +25,7 @@ contract VaultTest is Test {
 
         // Deploy implementation + ERC1967 proxy, calling initialize in one step
         Vault impl = new Vault();
-        bytes memory initData = abi.encodeCall(
-            Vault.initialize,
-            (address(asset), "NNS Vault Share", "NSHARE")
-        );
+        bytes memory initData = abi.encodeCall(Vault.initialize, (address(asset), "NNS Vault Share", "NSHARE"));
         ERC1967Proxy proxy = new ERC1967Proxy(address(impl), initData);
         vault = Vault(address(proxy));
 
@@ -303,7 +300,7 @@ contract VaultTest is Test {
         asset.approve(address(vault), deposit);
         vault.deposit(deposit, alice);
 
-        uint256 sharesBefore    = vault.balanceOf(alice);
+        uint256 sharesBefore = vault.balanceOf(alice);
         uint256 totalSupplyBefore = vault.totalSupply();
 
         // Vault rewards accrue by block number (REWARD_RATE_PER_BLOCK per block),
@@ -318,9 +315,9 @@ contract VaultTest is Test {
         uint256 rewardShares = vault.claimRewards();
 
         assertGt(rewardShares, 0, "Claimed rewards should be > 0");
-        assertEq(vault.balanceOf(alice),  sharesBefore + rewardShares,  "Balance increases by reward shares");
-        assertEq(vault.totalSupply(),     totalSupplyBefore + rewardShares, "totalSupply increases by reward shares");
-        assertEq(vault.earned(alice),     0, "Earned should reset to 0 after claim");
+        assertEq(vault.balanceOf(alice), sharesBefore + rewardShares, "Balance increases by reward shares");
+        assertEq(vault.totalSupply(), totalSupplyBefore + rewardShares, "totalSupply increases by reward shares");
+        assertEq(vault.earned(alice), 0, "Earned should reset to 0 after claim");
     }
 
     // ============================================================

@@ -4,6 +4,7 @@ pragma solidity ^0.8.28;
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+
 /**
  * @title Token
  * @dev Self-contained ERC20 implementation with custom 1% transaction fees
@@ -20,7 +21,7 @@ contract Token is IERC20, Ownable, ReentrancyGuard {
 
     // ---- Fee customizations: 1% total fee, split 70/30 ----
     uint256 private constant FEE_DENOMINATOR = 100; // 0.1% increments
-    uint256 private constant OWNER_FEE_SHARE = 70;   // 70% of fee to owner
+    uint256 private constant OWNER_FEE_SHARE = 70; // 70% of fee to owner
     uint256 private constant MAX_RECIPIENTS = 100;
     uint256 private constant MAX_MINT_PER_WINDOW = 1000 * 1e18;
     uint256 private constant BLOCKS_PER_WINDOW = 57600; // ~24 hours at ~1.5s/block
@@ -241,21 +242,21 @@ contract Token is IERC20, Ownable, ReentrancyGuard {
      * @param from Address from which tokens will be burned
      * @param amount Amount of tokens to burn
      */
-     function burn(address from, uint256 amount) external {
-         if (from != msg.sender) _spendAllowance(from, msg.sender, amount);
-         _burn(from, amount);
-     }
+    function burn(address from, uint256 amount) external {
+        if (from != msg.sender) _spendAllowance(from, msg.sender, amount);
+        _burn(from, amount);
+    }
 
-     /**
-      * @dev Internal helper to spend an allowance, decreasing it if not infinite.
-      */
-     function _spendAllowance(address ownerAddr, address spender, uint256 amount) internal {
-         uint256 currentAllowance = _allowances[ownerAddr][spender];
-         if (currentAllowance != type(uint256).max) {
-             if (currentAllowance < amount) revert InsufficientAllowance(currentAllowance, amount);
-             _approve(ownerAddr, spender, currentAllowance - amount);
-         }
-     }
+    /**
+     * @dev Internal helper to spend an allowance, decreasing it if not infinite.
+     */
+    function _spendAllowance(address ownerAddr, address spender, uint256 amount) internal {
+        uint256 currentAllowance = _allowances[ownerAddr][spender];
+        if (currentAllowance != type(uint256).max) {
+            if (currentAllowance < amount) revert InsufficientAllowance(currentAllowance, amount);
+            _approve(ownerAddr, spender, currentAllowance - amount);
+        }
+    }
 
     /**
      * @dev Sets whether an address is exempt from the transaction fee.
@@ -268,67 +269,67 @@ contract Token is IERC20, Ownable, ReentrancyGuard {
     /**
      * @dev Sprays a fixed amount of tokens to a list of recipient addresses.
      */
-     function spray(address[] calldata recipients, uint256 amount) external nonReentrant {
-         if (recipients.length == 0) revert NoRecipients();
-         if (recipients.length > MAX_RECIPIENTS) revert TooManyRecipients();
+    function spray(address[] calldata recipients, uint256 amount) external nonReentrant {
+        if (recipients.length == 0) revert NoRecipients();
+        if (recipients.length > MAX_RECIPIENTS) revert TooManyRecipients();
 
-         uint256 totalDebit;
-         if (feesEnabled && !isFeeExempt[msg.sender]) {
-             (uint256 feePerTransfer, , ) = _calculateFee(amount);
-             totalDebit = (amount + feePerTransfer) * recipients.length;
-         } else {
-             totalDebit = amount * recipients.length;
-         }
+        uint256 totalDebit;
+        if (feesEnabled && !isFeeExempt[msg.sender]) {
+            (uint256 feePerTransfer,,) = _calculateFee(amount);
+            totalDebit = (amount + feePerTransfer) * recipients.length;
+        } else {
+            totalDebit = amount * recipients.length;
+        }
 
-         uint256 available = balanceOf(msg.sender);
-         if (available < totalDebit) revert InsufficientBalance(available, totalDebit);
+        uint256 available = balanceOf(msg.sender);
+        if (available < totalDebit) revert InsufficientBalance(available, totalDebit);
 
-         // Temporarily exempt the sender to avoid nested fee application
-         bool wasExempt = isFeeExempt[msg.sender];
-         isFeeExempt[msg.sender] = true;
+        // Temporarily exempt the sender to avoid nested fee application
+        bool wasExempt = isFeeExempt[msg.sender];
+        isFeeExempt[msg.sender] = true;
 
-         for (uint256 i = 0; i < recipients.length; i++) {
-             address recipient = recipients[i];
-             if (recipient == address(0)) revert ZeroAddress();
-             if (recipient == address(this)) revert CannotSendToContract();
-             _transfer(msg.sender, recipient, totalDebit/recipients.length);
-         }
+        for (uint256 i = 0; i < recipients.length; i++) {
+            address recipient = recipients[i];
+            if (recipient == address(0)) revert ZeroAddress();
+            if (recipient == address(this)) revert CannotSendToContract();
+            _transfer(msg.sender, recipient, totalDebit / recipients.length);
+        }
 
-         isFeeExempt[msg.sender] = wasExempt;
-     }
+        isFeeExempt[msg.sender] = wasExempt;
+    }
 
-     /**
-      * @dev Splits a total amount of tokens evenly among all recipients.
-      */
-     function spraySplit(address[] calldata recipients, uint256 totalAmount) external nonReentrant {
-         if (recipients.length == 0) revert NoRecipients();
-         if (recipients.length > MAX_RECIPIENTS) revert TooManyRecipients();
+    /**
+     * @dev Splits a total amount of tokens evenly among all recipients.
+     */
+    function spraySplit(address[] calldata recipients, uint256 totalAmount) external nonReentrant {
+        if (recipients.length == 0) revert NoRecipients();
+        if (recipients.length > MAX_RECIPIENTS) revert TooManyRecipients();
 
-         uint256 perRecipient = totalAmount / recipients.length;
-         if (perRecipient == 0) revert AmountTooLow();
+        uint256 perRecipient = totalAmount / recipients.length;
+        if (perRecipient == 0) revert AmountTooLow();
 
-         uint256 totalDebit;
-         if (feesEnabled && !isFeeExempt[msg.sender]) {
-             (uint256 feePerTransfer, , ) = _calculateFee(perRecipient);
-             totalDebit = (perRecipient + feePerTransfer) * recipients.length;
-         } else {
-             totalDebit = perRecipient * recipients.length;
-         }
+        uint256 totalDebit;
+        if (feesEnabled && !isFeeExempt[msg.sender]) {
+            (uint256 feePerTransfer,,) = _calculateFee(perRecipient);
+            totalDebit = (perRecipient + feePerTransfer) * recipients.length;
+        } else {
+            totalDebit = perRecipient * recipients.length;
+        }
 
-         uint256 available = balanceOf(msg.sender);
-         if (available < totalDebit) revert InsufficientBalance(available, totalDebit);
+        uint256 available = balanceOf(msg.sender);
+        if (available < totalDebit) revert InsufficientBalance(available, totalDebit);
 
-         // Temporarily exempt the sender to avoid nested fee application
-         bool wasExempt = isFeeExempt[msg.sender];
-         isFeeExempt[msg.sender] = true;
+        // Temporarily exempt the sender to avoid nested fee application
+        bool wasExempt = isFeeExempt[msg.sender];
+        isFeeExempt[msg.sender] = true;
 
-         for (uint256 i = 0; i < recipients.length; i++) {
-             address recipient = recipients[i];
-             if (recipient == address(0)) revert ZeroAddress();
-             if (recipient == address(this)) revert CannotSendToContract();
-             _transfer(msg.sender, recipient, totalDebit/recipients.length);
-         }
+        for (uint256 i = 0; i < recipients.length; i++) {
+            address recipient = recipients[i];
+            if (recipient == address(0)) revert ZeroAddress();
+            if (recipient == address(this)) revert CannotSendToContract();
+            _transfer(msg.sender, recipient, totalDebit / recipients.length);
+        }
 
-         isFeeExempt[msg.sender] = wasExempt;
-     }
+        isFeeExempt[msg.sender] = wasExempt;
+    }
 }

@@ -38,24 +38,24 @@ import {Vault} from "../src/Vault.sol";
  */
 contract Deploy is Script {
     // ── defaults ──────────────────────────────────────────────────────────
-    string  constant DEFAULT_TOKEN_NAME   = "No Null State";
-    string  constant DEFAULT_TOKEN_SYMBOL = "NNS";
-    uint256 constant DEFAULT_TOKEN_SUPPLY = 1_000_000;   // whole tokens; scaled below
-    string  constant DEFAULT_VAULT_NAME   = "NNS Vault Share";
-    string  constant DEFAULT_VAULT_SYMBOL = "NSHARE";
+    string constant DEFAULT_TOKEN_NAME = "No Null State";
+    string constant DEFAULT_TOKEN_SYMBOL = "NNS";
+    uint256 constant DEFAULT_TOKEN_SUPPLY = 1_000_000; // whole tokens; scaled below
+    string constant DEFAULT_VAULT_NAME = "NNS Vault Share";
+    string constant DEFAULT_VAULT_SYMBOL = "NSHARE";
 
     // ── deployed addresses (set during run, useful for tests that inherit) ─
     Token public token;
-    Vault public vault;          // points to the proxy
-    address public vaultImpl;    // the bare implementation address
+    Vault public vault; // points to the proxy
+    address public vaultImpl; // the bare implementation address
 
     function run() external {
         // ── resolve config ────────────────────────────────────────────────
-        string  memory tokenName   = _envStringOr("TOKEN_NAME",   DEFAULT_TOKEN_NAME);
-        string  memory tokenSymbol = _envStringOr("TOKEN_SYMBOL", DEFAULT_TOKEN_SYMBOL);
-        uint256 tokenSupply        = _envUintOr  ("TOKEN_SUPPLY", DEFAULT_TOKEN_SUPPLY) * 1e18;
-        string  memory vaultName   = _envStringOr("VAULT_NAME",   DEFAULT_VAULT_NAME);
-        string  memory vaultSymbol = _envStringOr("VAULT_SYMBOL", DEFAULT_VAULT_SYMBOL);
+        string memory tokenName = _envStringOr("TOKEN_NAME", DEFAULT_TOKEN_NAME);
+        string memory tokenSymbol = _envStringOr("TOKEN_SYMBOL", DEFAULT_TOKEN_SYMBOL);
+        uint256 tokenSupply = _envUintOr("TOKEN_SUPPLY", DEFAULT_TOKEN_SUPPLY) * 1e18;
+        string memory vaultName = _envStringOr("VAULT_NAME", DEFAULT_VAULT_NAME);
+        string memory vaultSymbol = _envStringOr("VAULT_SYMBOL", DEFAULT_VAULT_SYMBOL);
 
         // ── broadcast ─────────────────────────────────────────────────────
         vm.startBroadcast();
@@ -74,10 +74,7 @@ contract Deploy is Script {
         console.log("Vault impl      :", vaultImpl);
 
         // 3. Deploy ERC1967 proxy, calling initialize() atomically
-        bytes memory initData = abi.encodeCall(
-            Vault.initialize,
-            (address(token), vaultName, vaultSymbol)
-        );
+        bytes memory initData = abi.encodeCall(Vault.initialize, (address(token), vaultName, vaultSymbol));
         ERC1967Proxy proxy = new ERC1967Proxy(vaultImpl, initData);
         vault = Vault(address(proxy));
 
@@ -100,11 +97,7 @@ contract Deploy is Script {
     // ── helpers ───────────────────────────────────────────────────────────
 
     /// @dev Returns the env var as a string, or `fallback` if not set / empty.
-    function _envStringOr(string memory key, string memory fallback_)
-        internal
-        view
-        returns (string memory)
-    {
+    function _envStringOr(string memory key, string memory fallback_) internal view returns (string memory) {
         try vm.envString(key) returns (string memory val) {
             if (bytes(val).length > 0) return val;
         } catch {}
@@ -112,11 +105,7 @@ contract Deploy is Script {
     }
 
     /// @dev Returns the env var as a uint256, or `fallback` if not set.
-    function _envUintOr(string memory key, uint256 fallback_)
-        internal
-        view
-        returns (uint256)
-    {
+    function _envUintOr(string memory key, uint256 fallback_) internal view returns (uint256) {
         try vm.envUint(key) returns (uint256 val) {
             return val;
         } catch {}

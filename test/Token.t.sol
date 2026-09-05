@@ -8,28 +8,24 @@ contract TokenTest is Test {
     Token public token;
 
     address alice = address(0xA11CE);
-    address bob   = address(0xB0B);
+    address bob = address(0xB0B);
     address carol = address(0xCAF3);
     address owner;
 
-    uint256 constant INITIAL_SUPPLY    = 1_000_000e18;
-    uint256 constant FEE_DENOMINATOR   = 100;
-    uint256 constant OWNER_FEE_SHARE   = 70;
+    uint256 constant INITIAL_SUPPLY = 1_000_000e18;
+    uint256 constant FEE_DENOMINATOR = 100;
+    uint256 constant OWNER_FEE_SHARE = 70;
     uint256 constant BLOCKS_PER_WINDOW = 57_600;
-    uint256 constant MAX_MINT          = 1_000; // raw tokens, no decimals
-    uint256 constant MAX_RECIPIENTS    = 100;
+    uint256 constant MAX_MINT = 1_000; // raw tokens, no decimals
+    uint256 constant MAX_RECIPIENTS = 100;
 
     // ---- helpers --------------------------------------------------------
 
     /// @dev Mirror of Token._calculateFee for assertion math.
-    function _fee(uint256 amount)
-        internal
-        pure
-        returns (uint256 fee, uint256 ownerShare, uint256 burnShare)
-    {
+    function _fee(uint256 amount) internal pure returns (uint256 fee, uint256 ownerShare, uint256 burnShare) {
         fee = amount / FEE_DENOMINATOR;
         ownerShare = (fee * OWNER_FEE_SHARE) / 100;
-        burnShare  = fee - ownerShare;
+        burnShare = fee - ownerShare;
     }
 
     // ---- setup ----------------------------------------------------------
@@ -50,13 +46,13 @@ contract TokenTest is Test {
     // ====================================================================
 
     function test_constructor_metadata() public view {
-        assertEq(token.name(),     "No Null State");
-        assertEq(token.symbol(),   "NNS");
+        assertEq(token.name(), "No Null State");
+        assertEq(token.symbol(), "NNS");
         assertEq(token.decimals(), 18);
     }
 
     function test_constructor_initialSupplyMintedToDeployer() public view {
-        assertEq(token.totalSupply(),    INITIAL_SUPPLY);
+        assertEq(token.totalSupply(), INITIAL_SUPPLY);
         assertEq(token.balanceOf(owner), INITIAL_SUPPLY);
     }
 
@@ -157,7 +153,7 @@ contract TokenTest is Test {
         uint256 amount = 1_000e18;
         token.transfer(alice, amount); // owner→alice: owner exempt, no fee
 
-        uint256 ownerBalBefore    = token.balanceOf(owner);
+        uint256 ownerBalBefore = token.balanceOf(owner);
         uint256 totalSupplyBefore = token.totalSupply();
 
         vm.prank(alice);
@@ -165,10 +161,10 @@ contract TokenTest is Test {
 
         (uint256 fee, uint256 ownerShare, uint256 burnShare) = _fee(amount);
 
-        assertEq(token.balanceOf(bob),   amount - fee,             "bob receives amount minus fee");
-        assertEq(token.balanceOf(alice), 0,                         "alice fully spent");
+        assertEq(token.balanceOf(bob), amount - fee, "bob receives amount minus fee");
+        assertEq(token.balanceOf(alice), 0, "alice fully spent");
         assertEq(token.balanceOf(owner), ownerBalBefore + ownerShare, "owner gets fee share");
-        assertEq(token.totalSupply(),    totalSupplyBefore - burnShare, "burn reduces total supply");
+        assertEq(token.totalSupply(), totalSupplyBefore - burnShare, "burn reduces total supply");
     }
 
     function test_fee_notAppliedWhenSenderExempt() public {
@@ -185,15 +181,15 @@ contract TokenTest is Test {
         token.transfer(alice, 2_000e18);
         token.setFeeExempt(bob, true);
 
-        uint256 aliceBal     = token.balanceOf(alice);
+        uint256 aliceBal = token.balanceOf(alice);
         uint256 supplyBefore = token.totalSupply();
 
         vm.prank(alice);
         token.transfer(bob, 1_000e18);
 
-        assertEq(token.balanceOf(bob),   1_000e18,          "bob gets full amount when recipient exempt");
+        assertEq(token.balanceOf(bob), 1_000e18, "bob gets full amount when recipient exempt");
         assertEq(token.balanceOf(alice), aliceBal - 1_000e18);
-        assertEq(token.totalSupply(),    supplyBefore,       "no burn when recipient exempt");
+        assertEq(token.totalSupply(), supplyBefore, "no burn when recipient exempt");
     }
 
     function test_fee_ownerShareAndBurnShareCorrect() public {
@@ -201,20 +197,20 @@ contract TokenTest is Test {
         token.transfer(alice, amount); // no fee (owner exempt)
 
         uint256 ownerBalBefore = token.balanceOf(owner);
-        uint256 supplyBefore   = token.totalSupply();
+        uint256 supplyBefore = token.totalSupply();
 
         vm.prank(alice);
         token.transfer(bob, amount);
 
         (uint256 fee, uint256 ownerShare, uint256 burnShare) = _fee(amount);
 
-        assertEq(fee,       100e18, "1% of 10_000e18");
+        assertEq(fee, 100e18, "1% of 10_000e18");
         assertEq(ownerShare, 70e18, "70% of fee");
-        assertEq(burnShare,  30e18, "30% of fee");
+        assertEq(burnShare, 30e18, "30% of fee");
 
         assertEq(token.balanceOf(owner), ownerBalBefore + ownerShare);
-        assertEq(token.totalSupply(),    supplyBefore   - burnShare);
-        assertEq(token.balanceOf(bob),   amount - fee);
+        assertEq(token.totalSupply(), supplyBefore - burnShare);
+        assertEq(token.balanceOf(bob), amount - fee);
     }
 
     function testFuzz_fee_mathInvariant(uint256 amount) public {
@@ -222,16 +218,16 @@ contract TokenTest is Test {
         token.transfer(alice, amount); // owner exempt, no fee on this leg
 
         uint256 ownerBalBefore = token.balanceOf(owner);
-        uint256 supplyBefore   = token.totalSupply();
+        uint256 supplyBefore = token.totalSupply();
 
         vm.prank(alice);
         token.transfer(bob, amount);
 
         (uint256 fee, uint256 ownerShare, uint256 burnShare) = _fee(amount);
 
-        assertEq(token.balanceOf(bob),   amount - fee);
+        assertEq(token.balanceOf(bob), amount - fee);
         assertEq(token.balanceOf(owner), ownerBalBefore + ownerShare);
-        assertEq(token.totalSupply(),    supplyBefore   - burnShare);
+        assertEq(token.totalSupply(), supplyBefore - burnShare);
         // Conservation: recipient received + fee charged == original amount
         assertEq(token.balanceOf(bob) + fee, amount);
     }
@@ -241,12 +237,12 @@ contract TokenTest is Test {
     // ====================================================================
 
     function test_mint_ownerCanMintWithinWindow() public {
-        uint256 amount       = 500;
+        uint256 amount = 500;
         uint256 supplyBefore = token.totalSupply();
 
         token.mint(alice, amount);
 
-        assertEq(token.totalSupply(),    supplyBefore + amount);
+        assertEq(token.totalSupply(), supplyBefore + amount);
         assertEq(token.balanceOf(alice), amount);
     }
 
@@ -269,9 +265,7 @@ contract TokenTest is Test {
     function test_mint_revertsWhenWindowExceeded() public {
         token.mint(alice, MAX_MINT); // exhaust window
 
-        vm.expectRevert(
-            abi.encodeWithSelector(Token.MintRateExceeded.selector, MAX_MINT, MAX_MINT, 1)
-        );
+        vm.expectRevert(abi.encodeWithSelector(Token.MintRateExceeded.selector, MAX_MINT, MAX_MINT, 1));
         token.mint(alice, 1);
     }
 
@@ -288,9 +282,7 @@ contract TokenTest is Test {
         token.mint(alice, 600);
 
         // 400 remaining — 401 should revert
-        vm.expectRevert(
-            abi.encodeWithSelector(Token.MintRateExceeded.selector, 600, MAX_MINT, 401)
-        );
+        vm.expectRevert(abi.encodeWithSelector(Token.MintRateExceeded.selector, 600, MAX_MINT, 401));
         token.mint(alice, 401);
 
         // exactly 400 should succeed
@@ -324,7 +316,7 @@ contract TokenTest is Test {
         token.burn(alice, 500e18);
 
         assertEq(token.balanceOf(alice), 500e18);
-        assertEq(token.totalSupply(),    supplyBefore - 500e18);
+        assertEq(token.totalSupply(), supplyBefore - 500e18);
     }
 
     function test_burn_selfBurn_owner() public {
@@ -333,7 +325,7 @@ contract TokenTest is Test {
         token.burn(owner, 1_000e18);
 
         assertEq(token.balanceOf(owner), INITIAL_SUPPLY - 1_000e18);
-        assertEq(token.totalSupply(),    supplyBefore - 1_000e18);
+        assertEq(token.totalSupply(), supplyBefore - 1_000e18);
     }
 
     function test_burn_approvedSpenderCanBurn() public {
@@ -345,7 +337,7 @@ contract TokenTest is Test {
         vm.prank(bob);
         token.burn(alice, 500e18);
 
-        assertEq(token.balanceOf(alice),      500e18);
+        assertEq(token.balanceOf(alice), 500e18);
         assertEq(token.allowance(alice, bob), 0, "allowance consumed");
     }
 
@@ -367,9 +359,7 @@ contract TokenTest is Test {
         // burning another address's tokens requires an explicit allowance.
         token.transfer(alice, 1_000e18);
 
-        vm.expectRevert(
-            abi.encodeWithSelector(Token.InsufficientAllowance.selector, 0, 500e18)
-        );
+        vm.expectRevert(abi.encodeWithSelector(Token.InsufficientAllowance.selector, 0, 500e18));
         token.burn(alice, 500e18); // called by owner, but no allowance set
     }
 
@@ -450,14 +440,14 @@ contract TokenTest is Test {
         token.transfer(alice, amount); // owner→alice, no fee anyway
 
         uint256 supplyBefore = token.totalSupply();
-        uint256 ownerBal     = token.balanceOf(owner);
+        uint256 ownerBal = token.balanceOf(owner);
 
         vm.prank(alice);
         token.transfer(bob, amount); // fees disabled globally
 
-        assertEq(token.balanceOf(bob),   amount, "bob gets full amount when fees disabled");
+        assertEq(token.balanceOf(bob), amount, "bob gets full amount when fees disabled");
         assertEq(token.balanceOf(owner), ownerBal, "owner gets no fee share");
-        assertEq(token.totalSupply(),    supplyBefore, "no burn when fees disabled");
+        assertEq(token.totalSupply(), supplyBefore, "no burn when fees disabled");
     }
 
     function test_setFees_reenablingRestoresFeeOnTransfer() public {
@@ -472,9 +462,9 @@ contract TokenTest is Test {
         vm.prank(alice);
         token.transfer(bob, amount);
 
-        (uint256 fee,,uint256 burnShare) = _fee(amount);
+        (uint256 fee,, uint256 burnShare) = _fee(amount);
         assertEq(token.balanceOf(bob), amount - fee, "fee applied after re-enable");
-        assertEq(token.totalSupply(),  supplyBefore - burnShare);
+        assertEq(token.totalSupply(), supplyBefore - burnShare);
     }
 
     // ====================================================================
@@ -535,7 +525,7 @@ contract TokenTest is Test {
         token.spray(recipients, amount);
 
         assertEq(token.balanceOf(alice), amount);
-        assertEq(token.balanceOf(bob),   amount);
+        assertEq(token.balanceOf(bob), amount);
         assertEq(token.balanceOf(carol), amount);
     }
 
@@ -545,10 +535,10 @@ contract TokenTest is Test {
         // Sender is exempted during the loop, so the full (amount + fee) lands with
         // each recipient and alice is left with exactly 0 (fully debited).
         uint256 amount = 100e18;
-        uint256 count  = 3;
+        uint256 count = 3;
 
         (uint256 feePerTransfer,,) = _fee(amount);
-        uint256 totalDebit       = (amount + feePerTransfer) * count;
+        uint256 totalDebit = (amount + feePerTransfer) * count;
         uint256 perRecipientGets = amount + feePerTransfer; // what each recipient actually receives
 
         token.transfer(alice, totalDebit); // fund exactly totalDebit
@@ -679,7 +669,7 @@ contract TokenTest is Test {
 
         uint256 perRecipient = totalAmount / 3;
         assertEq(token.balanceOf(alice), perRecipient);
-        assertEq(token.balanceOf(bob),   perRecipient);
+        assertEq(token.balanceOf(bob), perRecipient);
         assertEq(token.balanceOf(carol), perRecipient);
     }
 
@@ -688,12 +678,12 @@ contract TokenTest is Test {
         // The loop sends totalDebit/count = (perRecipient + fee) per recipient.
         // Sender is exempted, so full (perRecipient + fee) lands with each recipient
         // and alice is fully debited (balance → 0).
-        uint256 totalAmount  = 300e18;
-        uint256 count        = 3;
+        uint256 totalAmount = 300e18;
+        uint256 count = 3;
         uint256 perRecipient = totalAmount / count; // 100e18
 
         (uint256 feePerTransfer,,) = _fee(perRecipient);
-        uint256 totalDebit       = (perRecipient + feePerTransfer) * count;
+        uint256 totalDebit = (perRecipient + feePerTransfer) * count;
         uint256 perRecipientGets = perRecipient + feePerTransfer;
 
         token.transfer(alice, totalDebit); // fund exactly totalDebit
@@ -787,7 +777,7 @@ contract TokenTest is Test {
         // 10e18 / 3 → 3.33...e18 truncated to 3333333333333333333
         // Remaining dust stays with the sender (not distributed)
         uint256 totalAmount = 10e18;
-        uint256 count       = 3;
+        uint256 count = 3;
 
         address[] memory recipients = new address[](count);
         recipients[0] = alice;
@@ -798,7 +788,7 @@ contract TokenTest is Test {
 
         uint256 perRecipient = totalAmount / count;
         assertEq(token.balanceOf(alice), perRecipient);
-        assertEq(token.balanceOf(bob),   perRecipient);
+        assertEq(token.balanceOf(bob), perRecipient);
         assertEq(token.balanceOf(carol), perRecipient);
     }
 
@@ -830,7 +820,7 @@ contract TokenTest is Test {
 
         token.mint(alice, amount);
 
-        assertEq(token.totalSupply(),    supplyBefore + amount);
+        assertEq(token.totalSupply(), supplyBefore + amount);
         assertEq(token.balanceOf(alice), amount);
     }
 
@@ -838,7 +828,7 @@ contract TokenTest is Test {
         amount = bound(amount, FEE_DENOMINATOR, 1_000_000e18);
         token.transfer(alice, amount); // owner exempt leg
 
-        uint256 supplyBefore   = token.totalSupply();
+        uint256 supplyBefore = token.totalSupply();
         uint256 ownerBalBefore = token.balanceOf(owner);
 
         vm.prank(alice);
